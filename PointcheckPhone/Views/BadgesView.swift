@@ -4,9 +4,10 @@ import SwiftUI
 
 struct BadgesView: View {
     @Query private var stored: [StoredMatch]
+    @Environment(AccountService.self) private var account
 
     var body: some View {
-        let badges = PadelStats.badges(stored.map(\.summary))
+        let badges = PadelStats.badges(account.allMatches(local: stored.map(\.summary)))
         let unlocked = badges.filter(\.isUnlocked).count
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {

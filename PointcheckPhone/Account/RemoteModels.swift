@@ -115,12 +115,6 @@ struct MatchPlayerUpload: Encodable {
     }
 }
 
-/// My uploaded matches and their confirmation state.
-struct UploadedMatch: Decodable, Identifiable {
-    var id: UUID
-    var status: RemoteMatchStatus
-}
-
 /// A row of the `open_confirmations` view: a result someone else entered with me as opponent.
 struct OpenConfirmation: Decodable, Identifiable {
     var matchID: UUID
@@ -182,5 +176,86 @@ struct LeaderboardRow: Decodable, Identifiable {
         case id, username, rating
         case displayName = "display_name"
         case ratedMatches = "rated_matches"
+    }
+}
+
+/// Row of `my_friends()`.
+struct Friend: Decodable, Identifiable, Equatable {
+    enum Status: String, Decodable { case pending, accepted }
+
+    var profileID: UUID
+    var displayName: String
+    var username: String?
+    var rating: Double?
+    var ratedMatches: Int?
+    var status: Status
+    /// The other person sent the request to me.
+    var incoming: Bool
+
+    var id: UUID { profileID }
+    var level: Double? { rating.map(PadelLevel.level(for:)) }
+
+    enum CodingKeys: String, CodingKey {
+        case username, rating, status, incoming
+        case profileID = "profile_id"
+        case displayName = "display_name"
+        case ratedMatches = "rated_matches"
+    }
+}
+
+/// Row of `my_match_feed()`: a match I play in, stored from side A's perspective.
+struct FeedMatch: Decodable, Identifiable {
+    var matchID: UUID
+    var startedAt: Date
+    var endedAt: Date?
+    var sets: [SetScore]
+    var winnerSide: String
+    var status: RemoteMatchStatus
+    var mySide: String
+    var createdByMe: Bool
+    var bestOf: Int
+    var goldenPoint: Bool
+    var superTiebreak: Bool
+    var partnerName: String?
+    var opponentNames: String?
+
+    var id: UUID { matchID }
+
+    /// The match as a summary from my perspective.
+    var summary: MatchSummary {
+        let sideA = MatchSummary(
+            id: matchID,
+            startDate: startedAt,
+            endDate: endedAt,
+            opponentName: opponentNames ?? "",
+            partnerName: partnerName ?? "",
+            sets: sets,
+            winner: winnerSide == "a" ? .me : .opponent,
+            isCompleted: true,
+            bestOf: bestOf,
+            goldenPoint: goldenPoint,
+            superTiebreak: superTiebreak
+        )
+        guard mySide == "b" else { return sideA }
+        // Names are already from my side; only the score needs turning around.
+        var mine = sideA.flipped
+        mine.opponentName = opponentNames ?? ""
+        mine.partnerName = partnerName ?? ""
+        return mine
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case sets, status
+        case matchID = "match_id"
+        case startedAt = "started_at"
+        case endedAt = "ended_at"
+        case winnerSide = "winner_side"
+        case mySide = "my_side"
+        case createdByMe = "created_by_me"
+        case bestOf = "best_of"
+        case goldenPoint = "golden_point"
+        case superTiebreak = "super_tiebreak"
+        case partnerName = "partner_name"
+        case opponentNames = "opponent_names"
     }
 }

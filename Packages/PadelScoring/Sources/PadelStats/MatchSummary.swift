@@ -116,3 +116,25 @@ extension MatchSummary {
         return try decoder.decode([MatchSummary].self, from: data)
     }
 }
+
+extension TeamScore {
+    /// The same score seen by the other team.
+    public var flipped: TeamScore { TeamScore(me: opponent, opponent: me) }
+}
+
+extension SetScore {
+    /// The same set seen by the other team.
+    public var flipped: SetScore {
+        SetScore(games: games.flipped, tiebreak: tiebreak?.flipped, isComplete: isComplete, isSuperTiebreak: isSuperTiebreak)
+    }
+}
+
+extension MatchSummary {
+    /// The same match seen by the other team (sets, winner, names swapped).
+    public var flipped: MatchSummary {
+        var copy = self
+        copy.sets = sets.map(\.flipped)
+        copy.winner = winner?.other
+        return copy
+    }
+}

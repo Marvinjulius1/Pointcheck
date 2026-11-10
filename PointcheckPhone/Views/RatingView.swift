@@ -62,9 +62,10 @@ struct LevelBadge: View {
 
 struct RatingView: View {
     @Query private var stored: [StoredMatch]
+    @Environment(AccountService.self) private var account
 
     var body: some View {
-        let report = PadelStats.localRatings(stored.map(\.summary))
+        let report = PadelStats.localRatings(account.allMatches(local: stored.map(\.summary)))
         List {
             Section {
                 VStack(spacing: 8) {

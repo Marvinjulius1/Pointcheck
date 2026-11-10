@@ -6,15 +6,17 @@ struct RootView: View {
     @Environment(HealthService.self) private var health
     @Environment(AccountService.self) private var account
 
-    /// Reload training data when matches arrive or Health access was granted.
-    private struct HealthRefreshKey: Hashable {
+    /// Reload training data / upload new matches when matches arrive or access changes.
+    private struct RefreshKey: Hashable {
         let matchCount: Int
-        let hasAccess: Bool
+        let foreignCount: Int
+        let hasHealthAccess: Bool
+        let isSignedIn: Bool
     }
 
     var body: some View {
         TabView {
-            Tab("Übersicht", systemImage: "chart.bar.fill") {
+            Tab("Übersicht", systemImage: "chart.line.uptrend.xyaxis") {
                 NavigationStack { OverviewView() }
             }
             Tab("Matches", systemImage: "list.bullet") {
@@ -31,8 +33,15 @@ struct RootView: View {
             }
             .badge(account.openConfirmations.count)
         }
-        .task(id: HealthRefreshKey(matchCount: stored.count, hasAccess: health.hasRequestedAccess)) {
-            await health.refresh(for: stored.map(\.summary))
+        .task(id: RefreshKey(
+            matchCount: stored.count,
+            foreignCount: account.foreignMatches.count,
+            hasHealthAccess: health.hasRequestedAccess,
+            isSignedIn: account.state == .signedIn
+        )) {
+            let local = stored.map(\.summary)
+            await account.uploadNewMatches(local)
+            await health.refresh(for: account.allMatches(local: local))
         }
     }
 }

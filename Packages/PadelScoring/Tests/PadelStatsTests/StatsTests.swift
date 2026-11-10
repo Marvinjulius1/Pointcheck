@@ -218,3 +218,23 @@ struct TransferTests {
         #expect(decoded.first?.isCompleted == true)
     }
 }
+
+@Suite("Perspective")
+struct PerspectiveTests {
+    @Test func flippingSwapsSetsTiebreaksAndWinner() {
+        let original = MatchSummary(
+            startDate: Date(timeIntervalSince1970: 0),
+            sets: [
+                SetScore(games: TeamScore(me: 7, opponent: 6), tiebreak: TeamScore(me: 7, opponent: 3)),
+                SetScore(games: TeamScore(me: 1, opponent: 0), tiebreak: TeamScore(me: 10, opponent: 8), isSuperTiebreak: true),
+            ],
+            winner: .me
+        )
+        let other = original.flipped
+        #expect(other.winner == .opponent)
+        #expect(other.resultText == "6:7  [8:10]")
+        #expect(other.sets[0].tiebreak == TeamScore(me: 3, opponent: 7))
+        #expect(other.setsWon == TeamScore(me: 0, opponent: 2))
+        #expect(other.flipped == original)
+    }
+}

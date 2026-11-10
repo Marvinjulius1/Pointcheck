@@ -21,6 +21,20 @@ final class AccountService {
     /// Status of my uploaded matches, by match id.
     private(set) var uploads: [UUID: RemoteMatchStatus] = [:]
     private(set) var ratingHistory: [RatingHistoryRow] = []
+    private(set) var friends: [Friend] = []
+    /// Confirmed matches someone else entered with me in it (not on my watch).
+    private(set) var foreignMatches: [MatchSummary] = []
+    /// Matches I play in but did not enter, by id (for the "entered by a co-player" label).
+    private(set) var foreignIDs: Set<UUID> = []
+
+    /// Upload new watch matches automatically after signing in (setting in the Konto tab).
+    var autoUpload: Bool {
+        get { access(keyPath: \.autoUpload); return UserDefaults.standard.object(forKey: Self.autoUploadKey) as? Bool ?? true }
+        set { withMutation(keyPath: \.autoUpload) { UserDefaults.standard.set(newValue, forKey: Self.autoUploadKey) } }
+    }
+    @ObservationIgnored private static let autoUploadKey = "account.autoUpload"
+    /// Only matches started after this moment are uploaded automatically (no surprise bulk upload).
+    @ObservationIgnored private static let autoUploadSinceKey = "account.autoUploadSince"
 
     @ObservationIgnored let client = SupabaseClient(
         supabaseURL: SupabaseConfig.url,
@@ -107,6 +121,15 @@ final class AccountService {
         openConfirmations = []
         uploads = [:]
         ratingHistory = []
+        friends = []
+        foreignMatches = []
+        foreignIDs = []
+    }
+
+    /// Watch matches plus confirmed matches from co-players, without duplicates.
+    func allMatches(local: [MatchSummary]) -> [MatchSummary] {
+        let localIDs = Set(local.map(\.id))
+        return local + foreignMatches.filter { !localIDs.contains($0.id) }
     }
 
     // MARK: - Loading
@@ -125,12 +148,11 @@ final class AccountService {
                 .order("started_at", ascending: false)
                 .execute()
                 .value
-            let mine: [UploadedMatch] = try await client.from("matches")
-                .select("id, status")
-                .eq("created_by", value: userID)
-                .execute()
-                .value
-            uploads = Dictionary(uniqueKeysWithValues: mine.map { ($0.id, $0.status) })
+            let feed: [FeedMatch] = try await client.rpc("my_match_feed").execute().value
+            uploads = Dictionary(feed.filter(\.createdByMe).map { ($0.matchID, $0.status) }, uniquingKeysWith: { a, _ in a })
+            foreignIDs = Set(feed.filter { !$0.createdByMe }.map(\.matchID))
+            foreignMatches = feed.filter { !$0.createdByMe && $0.status == .confirmed }.map(\.summary)
+            friends = try await client.rpc("my_friends").execute().value
             ratingHistory = try await client.from("rating_history")
                 .select("id, rating_before, rating_after, created_at")
                 .eq("profile_id", value: userID)
@@ -259,6 +281,75 @@ final class AccountService {
 
     func reject(_ confirmation: OpenConfirmation) async throws {
         try await client.rpc("dispute_match", params: ["m": confirmation.matchID]).execute()
+        await refresh()
+    }
+
+    // MARK: - Automatic upload
+
+    /// Uploads finished watch matches that are not on the server yet (without links –
+    /// partner and opponents can be added in the match details).
+    func uploadNewMatches(_ local: [MatchSummary]) async {
+        guard state == .signedIn, autoUpload else { return }
+        let defaults = UserDefaults.standard
+        let since: Date
+        if let stored = defaults.object(forKey: Self.autoUploadSinceKey) as? Date {
+            since = stored
+        } else {
+            // First time: start from now, older history stays private until uploaded by hand.
+            since = .now
+            defaults.set(since, forKey: Self.autoUploadSinceKey)
+        }
+        let pending = local.filter {
+            $0.isDecided && $0.startDate >= since && uploads[$0.id] == nil && !foreignIDs.contains($0.id)
+        }
+        guard !pending.isEmpty else { return }
+        for match in pending {
+            guard let row = MatchUpload(match) else { continue }
+            do {
+                try await client.from("matches").insert(row).execute()
+            } catch let error as PostgrestError where error.code == "23505" {
+                // already there
+            } catch {
+                print("Automatic upload failed: \(error)")
+                return
+            }
+        }
+        await refresh()
+    }
+
+    // MARK: - Friends
+
+    enum FriendError: LocalizedError {
+        case notFound(String)
+        case yourself
+
+        var errorDescription: String? {
+            switch self {
+            case .notFound(let name): "Es gibt keinen Spieler mit dem Benutzernamen „\(name)“."
+            case .yourself: "Das bist du selbst."
+            }
+        }
+    }
+
+    /// Sends a friend request by username. Returns `true` if you are friends right away
+    /// (the other person had already asked you).
+    @discardableResult
+    func addFriend(username: String) async throws -> Bool {
+        let name = username.trimmingCharacters(in: CharacterSet(charactersIn: "@ ")).lowercased()
+        guard let found = await findProfile(username: name) else { throw FriendError.notFound(name) }
+        guard found.id != userID else { throw FriendError.yourself }
+        let status: String = try await client.rpc("request_friend", params: ["p_profile": found.id]).execute().value
+        await refresh()
+        return status == "accepted"
+    }
+
+    func acceptFriend(_ friend: Friend) async throws {
+        try await client.rpc("accept_friend", params: ["p_profile": friend.profileID]).execute()
+        await refresh()
+    }
+
+    func removeFriend(_ friend: Friend) async throws {
+        try await client.rpc("remove_friend", params: ["p_profile": friend.profileID]).execute()
         await refresh()
     }
 

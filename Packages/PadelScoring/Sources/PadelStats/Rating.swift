@@ -226,3 +226,48 @@ extension PadelStats {
         return LocalRatingReport(me: me, history: history, players: players)
     }
 }
+
+// MARK: - Chart series
+
+public struct RatingPoint: Hashable, Sendable, Identifiable {
+    public var date: Date
+    public var rating: Double
+    public var id: Date { date }
+
+    public init(date: Date, rating: Double) {
+        self.date = date
+        self.rating = rating
+    }
+}
+
+public enum RatingSeries {
+    /// Points to draw for a time window, like a stock chart:
+    /// starts with the value valid at `start` (if there is history before it), contains every
+    /// change inside the window and ends with the current value at `now`. Always ≥ 2 points.
+    public static func window(_ points: [RatingPoint], current: Double, since start: Date?, now: Date) -> [RatingPoint] {
+        let sorted = points.sorted { $0.date < $1.date }.filter { $0.date <= now }
+        var result: [RatingPoint] = []
+        if let start {
+            if let before = sorted.last(where: { $0.date < start }) {
+                result.append(RatingPoint(date: start, rating: before.rating))
+            }
+            result += sorted.filter { $0.date >= start }
+        } else {
+            result = sorted
+        }
+        if result.last?.date != now {
+            result.append(RatingPoint(date: now, rating: current))
+        }
+        if result.count == 1 {
+            let from = start ?? now.addingTimeInterval(-86_400)
+            result.insert(RatingPoint(date: from, rating: current), at: 0)
+        }
+        return result
+    }
+
+    /// Change from the first to the last point of a window.
+    public static func change(_ window: [RatingPoint]) -> (delta: Double, base: Double) {
+        guard let first = window.first, let last = window.last else { return (0, 0) }
+        return (last.rating - first.rating, first.rating)
+    }
+}

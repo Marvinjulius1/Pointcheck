@@ -201,6 +201,15 @@ private struct ProfileView: View {
             }
 
             Section {
+                Toggle("Neue Matches automatisch eintragen", isOn: Binding(
+                    get: { account.autoUpload },
+                    set: { account.autoUpload = $0 }
+                ))
+            } footer: {
+                Text("Neue Matches von deiner Watch werden hochgeladen, sobald sie auf dem iPhone ankommen. Gegner verlinkst du danach im Match unter „Spielstärke“. Ältere Matches bleiben privat, bis du sie selbst einträgst.")
+            }
+
+            Section {
                 NavigationLink("Öffentliche Rangliste") { LeaderboardView() }
                 Button("Profil bearbeiten") { editing = true }
                 Button("Abmelden", role: .destructive) { Task { await account.signOut() } }

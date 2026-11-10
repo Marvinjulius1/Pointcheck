@@ -153,3 +153,45 @@ struct LocalRatingTests {
         #expect(report.me.rating < 1500)
     }
 }
+
+@Suite("Rating series")
+struct RatingSeriesTests {
+    let now = Date(timeIntervalSince1970: 1_000_000)
+    func daysAgo(_ d: Double) -> Date { now.addingTimeInterval(-d * 86_400) }
+
+    var history: [RatingPoint] {
+        [
+            RatingPoint(date: daysAgo(100), rating: 1500),
+            RatingPoint(date: daysAgo(20), rating: 1530),
+            RatingPoint(date: daysAgo(3), rating: 1510),
+        ]
+    }
+
+    @Test func monthStartsWithValueValidAtWindowStart() {
+        let window = RatingSeries.window(history, current: 1510, since: daysAgo(30), now: now)
+        #expect(window.map(\.rating) == [1500, 1530, 1510, 1510])
+        #expect(window.first?.date == daysAgo(30))
+        #expect(window.last?.date == now)
+        let change = RatingSeries.change(window)
+        #expect(change.delta == 10)
+        #expect(change.base == 1500)
+    }
+
+    @Test func weekWithoutChangesIsFlatLine() {
+        let window = RatingSeries.window(history, current: 1510, since: daysAgo(2), now: now)
+        #expect(window.map(\.rating) == [1510, 1510])
+        #expect(RatingSeries.change(window).delta == 0)
+    }
+
+    @Test func maxContainsEverything() {
+        let window = RatingSeries.window(history, current: 1510, since: nil, now: now)
+        #expect(window.count == 4)
+        #expect(RatingSeries.change(window).delta == 10)
+    }
+
+    @Test func emptyHistoryStillDrawsALine() {
+        let window = RatingSeries.window([], current: 1500, since: nil, now: now)
+        #expect(window.count == 2)
+        #expect(window.allSatisfy { $0.rating == 1500 })
+    }
+}
