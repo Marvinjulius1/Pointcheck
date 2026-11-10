@@ -1,0 +1,394 @@
+<title>Hallen-Display Pointcheck</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: TV signage at the hall entrance – ranking (left, dominant), live results + monthly challenge (right), ticker at the bottom.
+   Deliberately single-theme: a lit display in a hall, court-blue turf behind glass panels. */
+:root {
+  --court: #0d2a4a;          /* padel turf blue */
+  --court-deep: #081c33;
+  --glass: rgba(255, 255, 255, 0.07);
+  --glass-edge: rgba(255, 255, 255, 0.16);
+  --line: rgba(255, 255, 255, 0.55); /* court lines */
+  --ink: #f2f6fb;
+  --ink-soft: #a9bccf;
+  --ball: #dcff4f;           /* tennis ball yellow – the one accent */
+  --win: #3ad46a;
+  --loss: #ff5a4e;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(120% 90% at 15% 0%, #16406b 0%, transparent 60%),
+    linear-gradient(180deg, var(--court) 0%, var(--court-deep) 100%);
+  background-color: var(--court-deep);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: clamp(13px, min(1.05vw, 1.75vh), 22px);
+  overflow-x: hidden;
+}
+
+/* faint court lines behind everything */
+.court-lines {
+  position: fixed; inset: 0; pointer-events: none; opacity: 0.09;
+  background:
+    linear-gradient(var(--line), var(--line)) 50% 0 / 2px 100% no-repeat,
+    linear-gradient(var(--line), var(--line)) 0 50% / 100% 2px no-repeat;
+}
+.court-lines::before, .court-lines::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 2px; background: var(--line);
+}
+.court-lines::before { left: 22%; }
+.court-lines::after { right: 22%; }
+
+.screen {
+  position: relative;
+  min-height: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: clamp(12px, 1.4vw, 28px);
+  padding-block: clamp(14px, 2vw, 40px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px), 2.4vw);
+  padding-right: max(16px, env(safe-area-inset-right, 0px), 2.4vw);
+}
+
+/* ---------- header ---------- */
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.hall { display: flex; align-items: center; gap: 0.8em; min-width: 0; }
+.ball {
+  width: 1.9em; height: 1.9em; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 30%, #f3ffb0 0%, var(--ball) 45%, #b5d62a 100%);
+  box-shadow: 0 0 24px rgba(220, 255, 79, 0.45);
+  position: relative; overflow: hidden;
+}
+.ball::before, .ball::after {
+  content: ""; position: absolute; width: 140%; height: 140%; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+}
+.ball::before { left: -95%; top: -20%; }
+.ball::after { right: -95%; top: -20%; }
+.hall h1 {
+  margin: 0; font-family: var(--font-display); font-weight: 800; letter-spacing: 0.02em;
+  font-size: clamp(26px, 2.6vw, 56px); line-height: 1; text-transform: uppercase; text-wrap: balance;
+}
+.hall p { margin: 0.2em 0 0; color: var(--ink-soft); font-size: 0.95em; }
+.meta { display: flex; align-items: center; gap: 1em; flex-wrap: wrap; }
+.chip {
+  font-family: var(--font-display); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  font-size: 0.8em; padding: 0.35em 0.9em; border-radius: 999px;
+  border: 1px solid rgba(220, 255, 79, 0.5); color: var(--ball);
+}
+.clock {
+  font-family: var(--font-display); font-weight: 700; font-size: clamp(28px, 2.8vw, 60px);
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+
+/* ---------- panels ---------- */
+main {
+  display: grid; grid-template-columns: 1.35fr 1fr; gap: clamp(12px, 1.4vw, 28px); min-height: 0;
+}
+.side { display: grid; grid-template-rows: 1.15fr 1fr; gap: clamp(12px, 1.4vw, 28px); min-height: 0; }
+.panel {
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  border-radius: clamp(16px, 1.4vw, 28px);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 20px 50px rgba(0, 0, 0, 0.25);
+  padding: clamp(14px, 1.5vw, 32px);
+  display: flex; flex-direction: column; gap: 0.9em; min-width: 0; min-height: 0; overflow: hidden;
+}
+.panel h2 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 1em;
+  font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  font-size: clamp(18px, 1.5vw, 32px);
+}
+.panel h2 small {
+  font-family: var(--font-body); font-weight: 500; letter-spacing: 0; text-transform: none;
+  font-size: 0.55em; color: var(--ink-soft);
+}
+
+/* ---------- ranking ---------- */
+.ranking { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35em; }
+.rank-row {
+  display: grid; grid-template-columns: 2.2em 3.2em minmax(0, 1fr) 4.5em 3.5em 3.2em;
+  align-items: center; gap: 0.8em; padding: 0.25em 0.8em; border-radius: 0.7em;
+  font-variant-numeric: tabular-nums;
+}
+.rank-row.head {
+  color: var(--ink-soft); font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.1em; padding-block: 0;
+}
+.rank-row:not(.head):nth-child(odd) { background: rgba(255, 255, 255, 0.035); }
+.pos { font-family: var(--font-display); font-weight: 700; font-size: 1.5em; text-align: right; color: var(--ink-soft); }
+.top .pos { color: var(--ball); }
+.level {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.15em;
+  width: 2.2em; height: 2.2em; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid var(--glass-edge);
+}
+.top .level { border-color: rgba(220, 255, 79, 0.65); box-shadow: 0 0 18px rgba(220, 255, 79, 0.18); }
+.name { font-weight: 600; font-size: 1.15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.name span { display: block; font-weight: 400; font-size: 0.72em; color: var(--ink-soft); }
+.pts { font-family: var(--font-display); font-weight: 700; font-size: 1.45em; text-align: right; }
+.trend { font-family: var(--font-display); font-weight: 600; text-align: right; }
+.trend.up { color: var(--win); }
+.trend.down { color: var(--loss); }
+.trend.flat { color: var(--ink-soft); }
+.games { text-align: right; color: var(--ink-soft); }
+
+/* ---------- results ---------- */
+.results { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55em; }
+.result {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.2em 1em; align-items: center;
+  padding: 0.6em 0.8em; border-radius: 0.8em; background: rgba(255, 255, 255, 0.04);
+}
+.result.fresh { animation: arrive 900ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes arrive {
+  from { transform: translateY(-14px); opacity: 0; background: rgba(220, 255, 79, 0.18); }
+  to { transform: none; opacity: 1; }
+}
+.teams { min-width: 0; display: grid; gap: 0.15em; }
+.team { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft); }
+.team.won { color: var(--ink); font-weight: 600; }
+.team.won::before { content: "●"; color: var(--ball); font-size: 0.7em; margin-right: 0.45em; vertical-align: 0.15em; }
+.score {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.35em; text-align: right;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.when { grid-column: 1 / -1; font-size: 0.78em; color: var(--ink-soft); }
+
+/* ---------- challenge ---------- */
+.prize {
+  display: flex; align-items: center; gap: 0.8em; padding: 0.6em 0.9em; border-radius: 0.8em;
+  background: rgba(220, 255, 79, 0.09); border: 1px solid rgba(220, 255, 79, 0.3);
+}
+.prize strong { color: var(--ball); font-family: var(--font-display); letter-spacing: 0.05em; text-transform: uppercase; }
+.bars { display: grid; gap: 0.7em; }
+.bar-row { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr) 2.6em; gap: 0.8em; align-items: center; }
+.bar-row .who { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.track { height: 0.75em; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #9fd400, var(--ball)); }
+.bar-row .n { font-family: var(--font-display); font-weight: 700; font-size: 1.2em; text-align: right; font-variant-numeric: tabular-nums; }
+.countdown { color: var(--ink-soft); font-size: 0.85em; margin-top: auto; }
+
+/* ---------- ticker ---------- */
+footer {
+  display: flex; align-items: center; gap: 1em; overflow: hidden; white-space: nowrap;
+  color: var(--ink-soft); font-size: 0.9em; border-top: 1px solid var(--glass-edge); padding-top: 0.8em;
+}
+footer b { color: var(--ball); font-family: var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; flex: none; }
+.ticker { overflow: hidden; flex: 1; min-width: 0; }
+.ticker span { display: inline-block; padding-left: 100%; animation: ticker 45s linear infinite; }
+@keyframes ticker { to { transform: translateX(-100%); } }
+
+/* ---------- smaller screens (laptop window, phone) ---------- */
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; }
+  .side { grid-template-rows: auto auto; }
+  .rank-row { grid-template-columns: 1.8em 2.8em minmax(0, 1fr) 3.8em 3em; }
+  .rank-row .games { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .result.fresh, .ticker span { animation: none; }
+  .ticker span { padding-left: 0; }
+}
+</style>
+
+<div class="court-lines" aria-hidden="true"></div>
+<div class="screen">
+  <header>
+    <div class="hall">
+      <div class="ball" aria-hidden="true"></div>
+      <div>
+        <h1>Padel Arena Musterstadt</h1>
+        <p>Hallen-Rangliste · bestätigte Matches</p>
+      </div>
+    </div>
+    <div class="meta">
+      <span class="chip">Demo · Beispieldaten</span>
+      <span class="clock" id="clock">18:42</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel" aria-labelledby="ranking-title">
+      <h2 id="ranking-title">Hallen-Rangliste <small id="ranking-month">Spielstärke · Level 1.0–7.0</small></h2>
+      <ol class="ranking" id="ranking">
+        <li class="rank-row head" aria-hidden="true">
+          <span>#</span><span>Level</span><span>Spieler</span><span style="text-align:right">Punkte</span><span style="text-align:right">Trend</span><span class="games" style="text-align:right">Sp.</span>
+        </li>
+      </ol>
+    </section>
+
+    <div class="side">
+      <section class="panel" aria-labelledby="results-title">
+        <h2 id="results-title">Letzte Ergebnisse <small>live von der Apple Watch</small></h2>
+        <ul class="results" id="results"></ul>
+      </section>
+
+      <section class="panel" aria-labelledby="challenge-title">
+        <h2 id="challenge-title">Monats-Challenge <small id="challenge-month">November</small></h2>
+        <div class="prize">
+          <div class="ball" aria-hidden="true" style="width:1.4em;height:1.4em"></div>
+          <div><strong>Meiste Matches</strong><br>Preis: 90 Min. Court gratis</div>
+        </div>
+        <div class="bars" id="challenge"></div>
+        <p class="countdown" id="countdown">Noch 20 Tage</p>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <b>Pointcheck</b>
+    <div class="ticker"><span>Punkte zählen mit der Apple Watch · Ergebnis vom Gegner in der App bestätigen lassen · Spielstärke steigt mit jedem Sieg gegen starke Gegner · Montag 19 Uhr: Mixed-Americano auf Court 1–4 · Profil auf „öffentlich“ stellen, um hier zu erscheinen</span></div>
+  </footer>
+</div>
+
+<script>
+(() => {
+  // Example data for the demo – invented names, no real players.
+  const players = [
+    { name: "Lena Kraus", club: "Mixed-Liga A", rating: 1962, trend: 18, matches: 41 },
+    { name: "Tom Richter", club: "Herren 30", rating: 1915, trend: 12, matches: 37 },
+    { name: "Ali Sahin", club: "Herren 30", rating: 1874, trend: -9, matches: 44 },
+    { name: "Mara Vogt", club: "Damen-Liga", rating: 1830, trend: 22, matches: 29 },
+    { name: "Jonas Brandt", club: "Mixed-Liga A", rating: 1796, trend: 0, matches: 33 },
+    { name: "Sofia Lindner", club: "Damen-Liga", rating: 1768, trend: -14, matches: 26 },
+    { name: "Max Becker", club: "Freizeit", rating: 1741, trend: 7, matches: 52 },
+    { name: "Nina Hartmann", club: "Mixed-Liga B", rating: 1712, trend: 5, matches: 19 },
+    { name: "Paul Neumann", club: "Freizeit", rating: 1690, trend: -6, matches: 23 },
+    { name: "Elif Yilmaz", club: "Mixed-Liga B", rating: 1655, trend: 31, matches: 14 },
+  ];
+
+  const results = [
+    { a: "Lena Kraus / Tom Richter", b: "Ali Sahin / Max Becker", sets: "6:4  3:6  [10:8]", winner: "a", court: 2, ago: 6 },
+    { a: "Mara Vogt / Sofia Lindner", b: "Nina Hartmann / Elif Yilmaz", sets: "6:3  6:2", winner: "a", court: 4, ago: 21 },
+    { a: "Jonas Brandt / Paul Neumann", b: "Max Becker / Ali Sahin", sets: "4:6  7:6  [7:10]", winner: "b", court: 1, ago: 38 },
+    { a: "Elif Yilmaz / Tom Richter", b: "Lena Kraus / Jonas Brandt", sets: "7:5  6:4", winner: "a", court: 3, ago: 55 },
+  ];
+
+  const incoming = [
+    { a: "Sofia Lindner / Max Becker", b: "Paul Neumann / Nina Hartmann", sets: "6:2  6:4", winner: "a", court: 1 },
+    { a: "Ali Sahin / Mara Vogt", b: "Tom Richter / Elif Yilmaz", sets: "6:7  6:3  [10:6]", winner: "a", court: 3 },
+    { a: "Jonas Brandt / Lena Kraus", b: "Max Becker / Sofia Lindner", sets: "6:1  6:2", winner: "a", court: 2 },
+    { a: "Nina Hartmann / Paul Neumann", b: "Elif Yilmaz / Mara Vogt", sets: "3:6  4:6", winner: "b", court: 4 },
+  ];
+
+  const challenge = [
+    { name: "Max Becker", n: 14 },
+    { name: "Ali Sahin", n: 12 },
+    { name: "Lena Kraus", n: 11 },
+    { name: "Tom Richter", n: 9 },
+    { name: "Mara Vogt", n: 8 },
+  ];
+
+  // Same mapping as the app: 1500 points ≈ level 3.5.
+  const level = (rating) => Math.min(7, Math.max(0, 1 + (rating - 1000) / 200)).toFixed(1);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function renderRanking() {
+    const list = document.getElementById("ranking");
+    list.querySelectorAll(".rank-row:not(.head)").forEach((el) => el.remove());
+    [...players].sort((x, y) => y.rating - x.rating).forEach((p, i) => {
+      const li = document.createElement("li");
+      li.className = "rank-row" + (i < 3 ? " top" : "");
+      const trendClass = p.trend > 0 ? "up" : p.trend < 0 ? "down" : "flat";
+      const trendText = p.trend > 0 ? `▲ ${p.trend}` : p.trend < 0 ? `▼ ${-p.trend}` : "–";
+      li.innerHTML = `
+        <span class="pos">${i + 1}</span>
+        <span class="level">${level(p.rating)}</span>
+        <span class="name">${esc(p.name)}<span>${esc(p.club)}</span></span>
+        <span class="pts">${p.rating}</span>
+        <span class="trend ${trendClass}">${trendText}</span>
+        <span class="games">${p.matches}</span>`;
+      list.appendChild(li);
+    });
+  }
+
+  function agoText(min) {
+    if (min < 1) return "gerade eben";
+    if (min < 60) return `vor ${min} Min.`;
+    return `vor ${Math.floor(min / 60)} Std.`;
+  }
+
+  function renderResults(freshFirst = false) {
+    const list = document.getElementById("results");
+    list.innerHTML = "";
+    results.slice(0, 3).forEach((r, i) => {
+      const li = document.createElement("li");
+      li.className = "result" + (freshFirst && i === 0 ? " fresh" : "");
+      li.innerHTML = `
+        <div class="teams">
+          <div class="team ${r.winner === "a" ? "won" : ""}">${esc(r.a)}</div>
+          <div class="team ${r.winner === "b" ? "won" : ""}">${esc(r.b)}</div>
+        </div>
+        <div class="score">${esc(r.sets)}</div>
+        <div class="when">Court ${r.court} · ${agoText(r.ago)} · bestätigt</div>`;
+      list.appendChild(li);
+    });
+  }
+
+  function renderChallenge() {
+    const box = document.getElementById("challenge");
+    const max = Math.max(...challenge.map((c) => c.n));
+    box.innerHTML = [...challenge].sort((a, b) => b.n - a.n).slice(0, 4).map((c) => `
+      <div class="bar-row">
+        <span class="who">${esc(c.name)}</span>
+        <div class="track"><div class="fill" style="width:${Math.round((c.n / max) * 100)}%"></div></div>
+        <span class="n">${c.n}</span>
+      </div>`).join("");
+  }
+
+  function tickClock() {
+    const now = new Date();
+    document.getElementById("clock").textContent =
+      now.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    const month = now.toLocaleDateString("de-DE", { month: "long" });
+    document.getElementById("challenge-month").textContent = month;
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const days = end.getDate() - now.getDate();
+    document.getElementById("countdown").textContent =
+      days === 0 ? "Letzter Tag der Challenge" : `Noch ${days} ${days === 1 ? "Tag" : "Tage"} bis zur Auswertung`;
+  }
+
+  // Simulated live feed: every 12 s a new confirmed result arrives and ratings move a little.
+  let next = 0;
+  function simulateMatch() {
+    const r = { ...incoming[next % incoming.length], ago: 0 };
+    next += 1;
+    results.forEach((x) => { x.ago += 12; });
+    results.unshift(r);
+    results.length = Math.min(results.length, 6);
+    const winners = (r.winner === "a" ? r.a : r.b).split(" / ");
+    const losers = (r.winner === "a" ? r.b : r.a).split(" / ");
+    players.forEach((p) => {
+      if (winners.includes(p.name)) { p.rating += 14; p.trend = 14; p.matches += 1; }
+      else if (losers.includes(p.name)) { p.rating -= 14; p.trend = -14; p.matches += 1; }
+    });
+    [...winners, ...losers].forEach((name) => {
+      const c = challenge.find((x) => x.name === name);
+      if (c) c.n += 1;
+    });
+    renderResults(true);
+    renderRanking();
+    renderChallenge();
+  }
+
+  renderRanking();
+  renderResults();
+  renderChallenge();
+  tickClock();
+  setInterval(tickClock, 15000);
+  setInterval(simulateMatch, 12000);
+})();
+</script>
