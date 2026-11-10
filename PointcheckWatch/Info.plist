@@ -31,7 +31,7 @@
 		<string>workout-processing</string>
 	</array>
 	<key>WKCompanionAppBundleIdentifier</key>
-	<string>com.yourname.pointcheck</string>
+	<string>com.marvinjulius.pointcheck</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
 	<true/>
 </dict>

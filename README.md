@@ -99,8 +99,8 @@ open Pointcheck.xcodeproj
 ### 2. Signieren
 1. In Xcode links das Projekt **Pointcheck** → Target **Pointcheck** → Tab **Signing & Capabilities**.
 2. **Team** auswählen. Falls nötig, vorher unter *Xcode → Settings → Accounts* deine Apple-ID hinzufügen.
-3. Bundle Identifier eindeutig machen, z. B. `com.<deinname>.pointcheck.watchkitapp`.
-   Alternativ vor `xcodegen` in `project.yml` `com.yourname` ersetzen.
+3. Die Bundle Identifier sind in `project.yml` fest eingetragen (`com.marvinjulius.pointcheck`,
+   `….watchkitapp`, `….watchkitapp.widget`) und müssen nicht geändert werden.
 4. Prüfen, dass **HealthKit** und **Background Modes → Workout processing** als Capabilities aktiv sind (kommen aus der project.yml).
 
 ### 3. Watch vorbereiten
