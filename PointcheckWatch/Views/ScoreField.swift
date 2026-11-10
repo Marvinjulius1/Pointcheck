@@ -10,6 +10,8 @@ struct ScoreField: View {
     let isEnabled: Bool
     /// Shared by both fields so the red and green numbers are always the same size.
     let scoreFontSize: CGFloat
+    /// Band at the top covered by the system clock (top field only); content is centred below it.
+    var contentTopInset: CGFloat = 0
     let action: () -> Void
 
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
@@ -58,6 +60,7 @@ struct ScoreField: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
             }
+            .padding(.top, contentTopInset)
             .frame(width: proxy.size.width, height: proxy.size.height)
             .glassEffect(.regular.tint(tint.opacity(isHighlighted ? 0.75 : 0.5)).interactive(), in: shape)
             .background {
