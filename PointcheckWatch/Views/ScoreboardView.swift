@@ -64,6 +64,7 @@ struct ScoreboardView: View {
                     MenuView()
                 } label: {
                     Image(systemName: "list.bullet")
+                        .foregroundStyle(.white)
                 }
                 .accessibilityLabel("Verlauf und Einstellungen")
             }
@@ -72,6 +73,7 @@ struct ScoreboardView: View {
                     showsNewMatchDialog = true
                 } label: {
                     Image(systemName: "plus")
+                        .foregroundStyle(.white)
                 }
                 .disabled(!state.hasStarted)
                 .accessibilityLabel("Neues Match")
