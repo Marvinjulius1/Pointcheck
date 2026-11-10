@@ -21,29 +21,23 @@ struct ScoreboardView: View {
     private var state: MatchState { controller.state }
 
     var body: some View {
-        // The outer reader only measures the top safe area (system clock).
-        // The inner layout ignores the safe area so the red field reaches the top edge;
-        // the clock floats on its glass (third-party apps cannot hide it).
-        GeometryReader { outer in
-            let topInset = outer.safeAreaInsets.top
-            GeometryReader { proxy in
-                let fieldHeight = max(0, (proxy.size.height - statusHeight) / 2)
-                // Same score size in both fields: based on the smaller visible area
-                // (the red field loses the clock area at the top).
-                let visibleHeight = fieldHeight - topInset
-                let scoreSize = min(max(visibleHeight, 0) * 0.78, 80)
-                VStack(spacing: 0) {
-                    field(for: .opponent, scoreSize: scoreSize, topInset: topInset)
-                        .frame(height: fieldHeight)
-                    centerStrip
-                        .frame(height: statusHeight)
-                    field(for: .me, scoreSize: scoreSize, topInset: 0)
-                        .frame(height: fieldHeight)
-                }
+        // The layout ignores the safe area so the red field reaches the top edge;
+        // the system clock floats on its glass (third-party apps cannot hide it).
+        GeometryReader { proxy in
+            let fieldHeight = max(0, (proxy.size.height - statusHeight) / 2)
+            // Both numbers: same size, centred in their field.
+            let scoreSize = min(fieldHeight * 0.85, 96)
+            VStack(spacing: 0) {
+                field(for: .opponent, scoreSize: scoreSize)
+                    .frame(height: fieldHeight)
+                centerStrip
+                    .frame(height: statusHeight)
+                field(for: .me, scoreSize: scoreSize)
+                    .frame(height: fieldHeight)
             }
-            .padding(.horizontal, 2)
-            .ignoresSafeArea()
         }
+        .padding(.horizontal, 2)
+        .ignoresSafeArea()
         .overlay {
             if state.isFinished, controller.highlight?.kind != .match {
                 MatchResultOverlay(state: state) {
@@ -134,14 +128,13 @@ struct ScoreboardView: View {
             .contentShape(.circle)
     }
 
-    private func field(for team: Team, scoreSize: CGFloat, topInset: CGFloat) -> some View {
+    private func field(for team: Team, scoreSize: CGFloat) -> some View {
         ScoreField(
             team: team,
             label: state.pointLabel(for: team),
             banner: banner(for: team),
             isEnabled: !state.isFinished,
-            scoreFontSize: scoreSize,
-            contentTopInset: topInset
+            scoreFontSize: scoreSize
         ) {
             controller.score(team)
         }
