@@ -10,9 +10,14 @@ let package = Package(
     ],
     products: [
         .library(name: "PadelScoring", targets: ["PadelScoring"]),
+        .library(name: "PadelStats", targets: ["PadelStats"]),
     ],
     targets: [
+        // Scoring rules of a single match (watch).
         .target(name: "PadelScoring"),
+        // Match summaries exchanged between watch and iPhone, plus all statistics.
+        .target(name: "PadelStats", dependencies: ["PadelScoring"]),
         .testTarget(name: "PadelScoringTests", dependencies: ["PadelScoring"]),
+        .testTarget(name: "PadelStatsTests", dependencies: ["PadelStats"]),
     ]
 )
