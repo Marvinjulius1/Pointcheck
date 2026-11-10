@@ -1,0 +1,65 @@
+# XcodeGen project definition – run `xcodegen` in this folder to create Pointcheck.xcodeproj.
+name: Pointcheck
+
+options:
+  bundleIdPrefix: com.yourname          # <- change to your own reverse domain
+  developmentLanguage: de
+  deploymentTarget:
+    watchOS: "26.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""                # <- or pick your team in Xcode (Signing & Capabilities)
+
+packages:
+  PadelScoring:
+    path: Packages/PadelScoring
+
+targets:
+  Pointcheck:
+    type: application
+    platform: watchOS
+    sources:
+      - path: PointcheckWatch
+    dependencies:
+      - package: PadelScoring
+      - sdk: HealthKit.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.pointcheck.watchkitapp
+        PRODUCT_NAME: Pointcheck
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "4"
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_PREVIEWS: YES
+    info:
+      path: PointcheckWatch/Info.plist
+      properties:
+        CFBundleDisplayName: Pointcheck
+        CFBundleDevelopmentRegion: de
+        WKApplication: true
+        WKWatchOnly: true
+        WKBackgroundModes:
+          - workout-processing
+        NSHealthShareUsageDescription: Pointcheck liest Herzfrequenz und Kalorien, um dein Padel-Match als Training aufzuzeichnen.
+        NSHealthUpdateUsageDescription: Pointcheck speichert deine Padel-Matches als Training in Health.
+    entitlements:
+      path: PointcheckWatch/Pointcheck.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
+
+schemes:
+  Pointcheck:
+    build:
+      targets:
+        Pointcheck: all
+    run:
+      config: Debug
+    archive:
+      config: Release
