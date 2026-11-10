@@ -89,6 +89,7 @@ targets:
     dependencies:
       - package: PadelScoring
         product: PadelStats
+      - sdk: HealthKit.framework
       # Embeds the watch app ("Embed Watch Content").
       - target: Pointcheck
         embed: true
@@ -114,6 +115,12 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        NSHealthShareUsageDescription: Pointcheck zeigt Herzfrequenz und Kalorien deiner Padel-Matches, die deine Apple Watch aufgezeichnet hat.
+    entitlements:
+      path: PointcheckPhone/Pointcheck.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
 
 schemes:
   PointcheckPhone:

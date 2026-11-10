@@ -32,7 +32,7 @@ Hallen und Clubs bekommen später eine Web-Ansicht.
 | **Partner-Statistik** und **Rivalen-Bilanz** | ✅ |
 | **Abzeichen & Serien** (11 Erfolge mit Fortschritt) | ✅ |
 | **Teilbare Ergebnis-Karte** (Bild für Instagram/WhatsApp) | ✅ |
-| Trainingsdaten aus Health (Herzfrequenz, Kalorien) pro Match | offen |
+| Trainingsdaten aus Health (Herzfrequenz, Kalorien) pro Match, Gesamtwerte, Kalorien auf der Teilen-Karte | ✅ |
 | iCloud-Sync (braucht das bezahlte Developer-Programm) | offen → Phase 3 |
 
 ## Phase 3 – Plattform: Konten & Spielstärke

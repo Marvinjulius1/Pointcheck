@@ -55,6 +55,9 @@ struct MatchRow: View {
 
 struct MatchDetailView: View {
     let match: MatchSummary
+    @Environment(HealthService.self) private var health
+
+    private var workout: WorkoutMetrics? { health.metrics[match.id] }
 
     var body: some View {
         List {
@@ -94,6 +97,21 @@ struct MatchDetailView: View {
                 LabeledContent("Partner", value: match.partnerName.isEmpty ? "–" : match.partnerName)
             }
 
+            if let workout {
+                Section("Training") {
+                    LabeledContent("Trainingsdauer", value: workout.duration.durationText)
+                    if let energy = workout.activeEnergy {
+                        LabeledContent("Aktive Energie", value: "\(Int(energy.rounded())) kcal")
+                    }
+                    if let average = workout.averageHeartRate {
+                        LabeledContent("Ø Herzfrequenz", value: "\(Int(average.rounded())) bpm")
+                    }
+                    if let max = workout.maxHeartRate {
+                        LabeledContent("Max. Herzfrequenz", value: "\(Int(max.rounded())) bpm")
+                    }
+                }
+            }
+
             Section("Details") {
                 LabeledContent("Datum", value: match.startDate.formatted(date: .long, time: .shortened))
                 if let duration = match.duration {
@@ -104,7 +122,7 @@ struct MatchDetailView: View {
             }
 
             Section {
-                ShareResultButton(match: match)
+                ShareResultButton(match: match, workout: workout)
             } footer: {
                 Text("Namen änderst du auf der Watch im Verlauf. Die Änderung erscheint dann automatisch hier.")
             }

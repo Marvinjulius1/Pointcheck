@@ -4,6 +4,7 @@ import SwiftUI
 /// Shareable result image (4:5, Instagram-friendly).
 struct ShareCardView: View {
     let match: MatchSummary
+    var workout: WorkoutMetrics?
 
     private var won: Bool { match.winner == .me }
     private var accent: Color { won ? Theme.me : Theme.opponent }
@@ -54,9 +55,12 @@ struct ShareCardView: View {
                 }
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
 
-                HStack {
+                HStack(spacing: 14) {
                     if let duration = match.duration {
                         Label(duration.durationText, systemImage: "stopwatch")
+                    }
+                    if let energy = workout?.activeEnergy {
+                        Label("\(Int(energy.rounded())) kcal", systemImage: "flame.fill")
                     }
                     Spacer()
                     Text("Pointcheck")
@@ -75,6 +79,7 @@ struct ShareCardView: View {
 /// Renders the card and opens the share sheet (Instagram, WhatsApp, Fotos …).
 struct ShareResultButton: View {
     let match: MatchSummary
+    var workout: WorkoutMetrics?
     @Environment(\.displayScale) private var displayScale
 
     var body: some View {
@@ -90,7 +95,7 @@ struct ShareResultButton: View {
 
     @MainActor
     private func renderImage() -> Image? {
-        let renderer = ImageRenderer(content: ShareCardView(match: match))
+        let renderer = ImageRenderer(content: ShareCardView(match: match, workout: workout))
         renderer.scale = max(displayScale, 3)
         guard let uiImage = renderer.uiImage else { return nil }
         return Image(uiImage: uiImage)
@@ -109,5 +114,5 @@ struct ShareResultButton: View {
             SetScore(games: TeamScore(me: 1, opponent: 0), tiebreak: TeamScore(me: 10, opponent: 8), isSuperTiebreak: true),
         ],
         winner: .me
-    ))
+    ), workout: WorkoutMetrics(start: .now, end: .now.addingTimeInterval(5400), activeEnergy: 712))
 }

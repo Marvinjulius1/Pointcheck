@@ -1,6 +1,16 @@
+import SwiftData
 import SwiftUI
 
 struct RootView: View {
+    @Query private var stored: [StoredMatch]
+    @Environment(HealthService.self) private var health
+
+    /// Reload training data when matches arrive or Health access was granted.
+    private struct HealthRefreshKey: Hashable {
+        let matchCount: Int
+        let hasAccess: Bool
+    }
+
     var body: some View {
         TabView {
             Tab("Übersicht", systemImage: "chart.bar.fill") {
@@ -15,6 +25,9 @@ struct RootView: View {
             Tab("Erfolge", systemImage: "trophy.fill") {
                 NavigationStack { BadgesView() }
             }
+        }
+        .task(id: HealthRefreshKey(matchCount: stored.count, hasAccess: health.hasRequestedAccess)) {
+            await health.refresh(for: stored.map(\.summary))
         }
     }
 }

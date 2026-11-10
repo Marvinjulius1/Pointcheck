@@ -6,6 +6,7 @@ import SwiftUI
 struct OverviewView: View {
     @Query(sort: \StoredMatch.startDate, order: .reverse) private var stored: [StoredMatch]
     @Environment(WatchSync.self) private var sync
+    @Environment(HealthService.self) private var health
 
     private var matches: [MatchSummary] { stored.map(\.summary) }
 
@@ -18,6 +19,7 @@ struct OverviewView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         tiles(overview)
+                        healthSection
                         weeklyChart
                         peopleSection(title: "Beste Partner", records: PadelStats.partners(matches), mode: .partners)
                         peopleSection(title: "Rivalen", records: PadelStats.rivals(matches), mode: .rivals)
@@ -27,7 +29,52 @@ struct OverviewView: View {
             }
         }
         .navigationTitle("Übersicht")
-        .refreshable { sync.requestAll() }
+        .refreshable {
+            sync.requestAll()
+            await health.refresh(for: matches)
+        }
+    }
+
+    @ViewBuilder
+    private var healthSection: some View {
+        if health.isAvailable, !health.hasRequestedAccess {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Trainingsdaten", systemImage: "heart.fill")
+                    .font(.headline)
+                    .foregroundStyle(.pink)
+                Text("Zeig Herzfrequenz und Kalorien zu jedem Match – aufgezeichnet von deiner Apple Watch.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Button("Mit Health verbinden") {
+                    Task { await health.requestAccess() }
+                }
+                .buttonStyle(.glassProminent)
+                .tint(.pink)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .glassEffect(.regular, in: .rect(cornerRadius: 22))
+        } else {
+            let totals = PadelStats.healthTotals(health.metrics.values)
+            if totals.matchesWithData > 0 {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                    StatTile(
+                        title: "Kalorien",
+                        value: totals.activeEnergy.formatted(.number.precision(.fractionLength(0))),
+                        detail: "kcal in \(totals.matchesWithData) Matches",
+                        symbol: "flame.fill",
+                        tint: .orange
+                    )
+                    StatTile(
+                        title: "Ø Puls",
+                        value: totals.averageHeartRate.map { "\(Int($0.rounded()))" } ?? "–",
+                        detail: totals.maxHeartRate.map { "max. \(Int($0.rounded())) bpm" },
+                        symbol: "heart.fill",
+                        tint: .pink
+                    )
+                }
+            }
+        }
     }
 
     private func tiles(_ overview: StatsOverview) -> some View {
