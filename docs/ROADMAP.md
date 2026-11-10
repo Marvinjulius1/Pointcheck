@@ -39,7 +39,7 @@ Hallen und Clubs bekommen später eine Web-Ansicht.
 *Braucht einen Server (CloudKit oder eigener Backend-Dienst) und das bezahlte Apple Developer Program.*
 
 - Konten („Mit Apple anmelden“), Spielerprofile, Datenschutz-Einstellungen (öffentlich / nur Freunde)
-- Ergebnis-Bestätigung durch den Gegner (QR-Code auf der Watch → Gegner bestätigt am iPhone)
+- Ergebnis-Bestätigung durch den Gegner: Ersteller verlinkt das Profil des Gegners, der Gegner bestätigt oder lehnt in seiner App ab – ✅ Datenbank fertig und getestet
 - **Spielstärke-Wert** (Elo-ähnlich, für Doppel) – ✅ Rechenlogik fertig und getestet; ✅ lokale Vorschau in der iPhone-App (Level 1.0–7.0, Verlauf, „Dein Kreis“). Fehlt: echte Werte aller Mitspieler über Konten
 - **Gegner suchen** (ähnliche Spielstärke, in der Nähe)
 

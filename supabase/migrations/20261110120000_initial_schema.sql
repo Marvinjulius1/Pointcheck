@@ -1,7 +1,8 @@
 -- Pointcheck – initial schema
 --
 -- Profiles (public or friends-only), friendships, matches with opponent confirmation
--- (QR code claim), and a doubles Elo rating computed on the server.
+-- in the app (the creator links the opponent's profile, the opponent confirms or
+-- rejects), and a doubles Elo rating computed on the server.
 --
 -- Security model: every table has row level security. Ratings and confirmations can
 -- only change through the SECURITY DEFINER functions below, never directly.
@@ -62,12 +63,6 @@ create table public.matches (
 );
 
 create index matches_created_by_idx on public.matches (created_by);
-
--- Secret token shown as QR code on the creator's device. No policies: only functions read it.
-create table public.match_claims (
-    match_id uuid primary key references public.matches (id) on delete cascade,
-    token text not null default replace(gen_random_uuid()::text, '-', '')
-);
 
 -- Slots 1–2: side A (creator's team), slots 3–4: side B (opponents).
 create table public.match_players (
@@ -172,7 +167,7 @@ create trigger on_auth_user_created
     after insert on auth.users
     for each row execute function public.handle_new_user();
 
--- New match → creator takes slot 1 (already confirmed) and a claim token is generated.
+-- New match → creator takes slot 1 (already confirmed).
 create function public.handle_new_match()
 returns trigger
 language plpgsql security definer set search_path = ''
@@ -180,7 +175,6 @@ as $$
 begin
     insert into public.match_players (match_id, slot, profile_id, confirmed_at)
     values (new.id, 1, new.created_by, now());
-    insert into public.match_claims (match_id) values (new.id);
     return new;
 end;
 $$;
@@ -282,68 +276,7 @@ $$;
 -- Client API
 -- ---------------------------------------------------------------------------
 
--- Creator only: token for the QR code.
-create function public.match_claim_token(m uuid)
-returns text
-language sql stable security definer set search_path = ''
-as $$
-    select c.token
-    from public.match_claims c
-    join public.matches x on x.id = c.match_id
-    where c.match_id = m and x.created_by = auth.uid();
-$$;
-
--- Opponent scans the QR code: takes a free slot on side B (or keeps theirs) and confirms.
-create function public.claim_and_confirm(m uuid, claim_token text)
-returns public.match_status
-language plpgsql security definer set search_path = ''
-as $$
-declare
-    v_uid uuid := auth.uid();
-    v_slot smallint;
-begin
-    if v_uid is null then
-        raise exception 'not signed in';
-    end if;
-    if not exists (select 1 from public.match_claims where match_id = m and token = claim_token) then
-        raise exception 'invalid code';
-    end if;
-    if not exists (select 1 from public.matches where id = m and status = 'pending') then
-        raise exception 'match is not open for confirmation';
-    end if;
-    if exists (select 1 from public.match_players where match_id = m and side = 'a' and profile_id = v_uid) then
-        raise exception 'you played on the other side';
-    end if;
-
-    select slot into v_slot from public.match_players
-    where match_id = m and side = 'b' and profile_id = v_uid;
-
-    if v_slot is null then
-        -- First free side-B slot (an empty or guest-only row, or a missing one).
-        select s into v_slot
-        from generate_series(3, 4) s
-        where not exists (
-            select 1 from public.match_players
-            where match_id = m and slot = s and profile_id is not null
-        )
-        order by s
-        limit 1;
-        if v_slot is null then
-            raise exception 'both opponent places are taken';
-        end if;
-        insert into public.match_players (match_id, slot, profile_id)
-        values (m, v_slot, v_uid)
-        on conflict (match_id, slot) do update set profile_id = excluded.profile_id;
-    end if;
-
-    update public.match_players set confirmed_at = now()
-    where match_id = m and slot = v_slot;
-
-    return public.finalize_if_confirmed(m);
-end;
-$$;
-
--- Opponent who was added by name (friend) confirms without a QR code.
+-- A linked opponent confirms the result in their app.
 create function public.confirm_match(m uuid)
 returns public.match_status
 language plpgsql security definer set search_path = ''
@@ -359,7 +292,8 @@ begin
 end;
 $$;
 
--- Opponent rejects the result. A disputed match is never rated.
+-- A linked player (opponent or partner, not the creator) rejects the result.
+-- A disputed match is never rated.
 create function public.dispute_match(m uuid)
 returns public.match_status
 language plpgsql security definer set search_path = ''
@@ -369,7 +303,7 @@ begin
     where id = m and status = 'pending'
       and exists (
           select 1 from public.match_players
-          where match_id = m and side = 'b' and profile_id = auth.uid()
+          where match_id = m and slot > 1 and profile_id = auth.uid()
       );
     if not found then
         raise exception 'nothing to dispute';
@@ -378,7 +312,8 @@ begin
 end;
 $$;
 
--- Find someone to add as a friend, even if their profile is friends-only (minimal data).
+-- Find someone by username to link in a match or add as a friend – also works for
+-- friends-only profiles (only minimal data is returned).
 create function public.find_profile(p_username text)
 returns table (id uuid, display_name text, username text)
 language sql stable security definer set search_path = ''
@@ -387,6 +322,21 @@ as $$
     from public.profiles p
     where p.username = lower(trim(p_username)) and auth.uid() is not null;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Views
+-- ---------------------------------------------------------------------------
+
+-- Results waiting for my confirmation (I was linked as an opponent).
+create view public.open_confirmations
+with (security_invoker = true)
+as
+select x.id as match_id, x.created_by, x.started_at, x.ended_at, x.sets, x.winner_side,
+       x.best_of, x.golden_point, x.super_tiebreak
+from public.matches x
+join public.match_players mp on mp.match_id = x.id
+where x.status = 'pending' and mp.side = 'b'
+  and mp.profile_id = auth.uid() and mp.confirmed_at is null;
 
 -- ---------------------------------------------------------------------------
 -- Public leaderboard (only public profiles with at least one rated match)
@@ -407,7 +357,6 @@ order by p.rating desc;
 alter table public.profiles enable row level security;
 alter table public.friendships enable row level security;
 alter table public.matches enable row level security;
-alter table public.match_claims enable row level security;
 alter table public.match_players enable row level security;
 alter table public.rating_history enable row level security;
 
@@ -438,14 +387,13 @@ create policy "matches: edit own while pending" on public.matches
 create policy "matches: delete own while pending" on public.matches
     for delete to authenticated using (created_by = auth.uid() and status = 'pending');
 
--- match_players (the creator fills in partner/opponents while the match is pending)
+-- match_players (the creator links partner/opponents while the match is pending; linking
+-- does not need a friendship – the linked player confirms or rejects in their app)
 create policy "match_players: visible matches" on public.match_players
     for select to authenticated using (public.can_view_match(match_id));
 create policy "match_players: creator adds" on public.match_players
     for insert to authenticated with check (
         slot > 1 and confirmed_at is null
-        -- Only friends can be added by name; everyone else joins via the QR code.
-        and (profile_id is null or public.are_friends(auth.uid(), profile_id))
         and exists (select 1 from public.matches x
                     where x.id = match_id and x.created_by = auth.uid() and x.status = 'pending')
     );
@@ -453,10 +401,7 @@ create policy "match_players: creator edits" on public.match_players
     for update to authenticated using (
         slot > 1 and exists (select 1 from public.matches x
                              where x.id = match_id and x.created_by = auth.uid() and x.status = 'pending')
-    ) with check (
-        slot > 1 and confirmed_at is null
-        and (profile_id is null or public.are_friends(auth.uid(), profile_id))
-    );
+    ) with check (slot > 1 and confirmed_at is null);
 create policy "match_players: creator removes" on public.match_players
     for delete to authenticated using (
         slot > 1 and exists (select 1 from public.matches x
@@ -471,8 +416,9 @@ create policy "rating_history: visible profiles" on public.rating_history
 -- Privileges: columns that must only change through the functions above
 -- ---------------------------------------------------------------------------
 
-revoke all on public.profiles, public.friendships, public.matches, public.match_claims,
-    public.match_players, public.rating_history, public.leaderboard from anon, authenticated;
+revoke all on public.profiles, public.friendships, public.matches,
+    public.match_players, public.rating_history, public.leaderboard, public.open_confirmations
+    from anon, authenticated;
 
 grant select on public.profiles to authenticated;
 grant update (display_name, username, visibility) on public.profiles to authenticated;
@@ -492,19 +438,17 @@ grant insert (match_id, slot, profile_id, guest_name) on public.match_players to
 grant update (profile_id, guest_name) on public.match_players to authenticated;
 
 grant select on public.rating_history to authenticated;
-grant select on public.leaderboard to authenticated;
+grant select on public.leaderboard, public.open_confirmations to authenticated;
 
 -- Internal functions are not callable by clients.
 revoke execute on function public.apply_match_rating(uuid), public.finalize_if_confirmed(uuid),
     public.handle_new_user(), public.handle_new_match() from public, anon, authenticated;
-revoke execute on function public.match_claim_token(uuid), public.claim_and_confirm(uuid, text),
-    public.confirm_match(uuid), public.dispute_match(uuid), public.find_profile(text),
-    public.are_friends(uuid, uuid), public.can_view_profile(uuid), public.is_match_player(uuid),
-    public.can_view_match(uuid) from public, anon, authenticated;
+revoke execute on function public.confirm_match(uuid), public.dispute_match(uuid),
+    public.find_profile(text), public.are_friends(uuid, uuid), public.can_view_profile(uuid),
+    public.is_match_player(uuid), public.can_view_match(uuid) from public, anon, authenticated;
 -- Client API.
-grant execute on function public.match_claim_token(uuid), public.claim_and_confirm(uuid, text),
-    public.confirm_match(uuid), public.dispute_match(uuid), public.find_profile(text)
-    to authenticated;
+grant execute on function public.confirm_match(uuid), public.dispute_match(uuid),
+    public.find_profile(text) to authenticated;
 -- Used directly inside policies, so the caller needs EXECUTE (they only answer yes/no).
-grant execute on function public.can_view_profile(uuid), public.can_view_match(uuid),
-    public.are_friends(uuid, uuid) to authenticated;
+grant execute on function public.can_view_profile(uuid), public.can_view_match(uuid)
+    to authenticated;

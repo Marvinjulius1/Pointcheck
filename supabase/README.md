@@ -10,26 +10,28 @@ Matches mit Bestätigung durch den Gegner und die Spielstärke-Berechnung auf de
 | `profiles` | Name, Benutzername, Sichtbarkeit (`public` / `friends`, Standard: `friends`), Spielstärke |
 | `friendships` | Freundschaftsanfragen und -bestätigungen |
 | `matches`, `match_players` | Hochgeladene Matches; Slots 1–2 = eigenes Team, 3–4 = Gegner |
-| `match_claims` | Geheimer Code für den QR-Code (nur Ersteller kann ihn abrufen) |
 | `rating_history` | Spielstärke vor/nach jedem gewerteten Match |
 | `leaderboard` | Rangliste – nur öffentliche Profile |
-| `claim_and_confirm(match, code)` | Gegner scannt QR-Code → wird eingetragen und bestätigt |
-| `confirm_match` / `dispute_match` | Bestätigen bzw. Ergebnis ablehnen |
-| `find_profile(username)` | Spieler zum Hinzufügen als Freund finden |
+| `open_confirmations` | Ergebnisse, die ich als verlinkter Gegner noch bestätigen muss |
+| `confirm_match` / `dispute_match` | Ergebnis in der App bestätigen bzw. ablehnen |
+| `find_profile(username)` | Spieler finden, um ihn im Match zu verlinken oder als Freund hinzuzufügen |
 
 **Sicherheitsregeln (Row Level Security):**
 - Private Profile sehen nur Freunde.
 - Ein Match sieht man als Teilnehmer, sonst nur, wenn es bestätigt ist **und** alle Spieler darin für einen sichtbar sind.
 - Spielstärke und Bestätigungen lassen sich nicht direkt ändern, nur über die Server-Funktionen.
 - Gewertet wird ein Match genau einmal, sobald ein Gegner bestätigt. Abgelehnte Matches werden nie gewertet.
-- Per Name eintragen kann man nur Freunde. Alle anderen kommen über den QR-Code dazu.
+- Der Ersteller verlinkt Partner und Gegner über ihren Benutzernamen. Der Gegner sieht das Ergebnis
+  in seiner App unter „Offene Bestätigungen“ und bestätigt oder lehnt ab. Erst dann zählt es.
 
 ## Einrichten (einmalig)
 
 1. Supabase-Projekt anlegen, Region **Frankfurt (eu-central-1)**.
 2. Im Supabase-Dashboard **SQL Editor** öffnen.
-3. Den Inhalt von `migrations/20261110120000_initial_schema.sql` hineinkopieren und auf **Run** klicken.
-4. Unter **Authentication → Providers → Email** die Anmeldung per E-Mail aktiv lassen.
+3. **Nur falls schon ein früherer Stand eingespielt wurde** (Fehler wie `type "profile_visibility" already exists`):
+   den Inhalt von `reset.sql` einfügen und auf **Run** klicken. ⚠️ Das löscht alle Pointcheck-Daten.
+4. Den Inhalt von `migrations/20261110120000_initial_schema.sql` einfügen und auf **Run** klicken.
+5. Unter **Authentication → Providers → Email** die Anmeldung per E-Mail aktiv lassen.
    „Mit Apple anmelden“ kommt später mit dem Apple Developer Program dazu.
 
 ⚠️ `tests/local_supabase_stub.sql` **nicht** in Supabase ausführen. Die Datei ersetzt Supabase nur für lokale Tests.
@@ -41,7 +43,7 @@ Gegen ein lokales PostgreSQL 15+:
 PGHOST=localhost PGUSER=postgres supabase/tests/run_local.sh
 ```
 Der Lauf legt jedes Mal eine frische Testdatenbank an. Geprüft werden: Profil beim Registrieren,
-Sichtbarkeit, gesperrte Spalten, Freunde-Regel, QR-Bestätigung, Spielstärke-Berechnung,
+Sichtbarkeit, gesperrte Spalten, Verlinken, Bestätigung in der App, Spielstärke-Berechnung,
 Schutz vor doppelter Wertung und Ablehnung.
 
 ## Schlüssel – was in die App darf

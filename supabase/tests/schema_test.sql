@@ -68,10 +68,13 @@ do $$ begin
             where match_id = 'aaaaaaaa-0000-0000-0000-000000000001') = 2, 'creator + partner';
     assert (select confirmed_at is not null from public.match_players
             where match_id = 'aaaaaaaa-0000-0000-0000-000000000001' and slot = 1), 'creator auto-confirmed';
+    -- Opponents are linked by profile (no friendship needed); they confirm in their app.
+    insert into public.match_players (match_id, slot, profile_id)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', 3, '33333333-3333-3333-3333-333333333333');
     begin
         insert into public.match_players (match_id, slot, profile_id)
-        values ('aaaaaaaa-0000-0000-0000-000000000001', 3, '33333333-3333-3333-3333-333333333333');
-        assert false, 'strangers cannot be added by name';
+        values ('aaaaaaaa-0000-0000-0000-000000000001', 1, '55555555-5555-5555-5555-555555555555');
+        assert false, 'slot 1 belongs to the creator';
     exception when insufficient_privilege then null;
     end;
     begin
@@ -82,12 +85,14 @@ do $$ begin
     end;
 end $$;
 
-select public.match_claim_token(:'m1') as token \gset
-
 select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
 do $$ begin
     assert (select count(*) from public.matches) = 0, 'outsiders do not see pending matches';
-    assert public.match_claim_token('aaaaaaaa-0000-0000-0000-000000000001') is null, 'token is creator-only';
+    begin
+        perform public.confirm_match('aaaaaaaa-0000-0000-0000-000000000001');
+        assert false, 'only linked opponents can confirm';
+    exception when raise_exception then null;
+    end;
     begin
         perform public.apply_match_rating('aaaaaaaa-0000-0000-0000-000000000001');
         assert false, 'internal rating function is not callable';
@@ -95,20 +100,16 @@ do $$ begin
     end;
 end $$;
 
--- ---------------------------------------------------------------- QR confirmation
+-- ---------------------------------------------------------------- confirmation in the app
 select set_config('request.jwt.claim.sub', :'carl', false) \g /dev/null
 do $$ begin
-    begin
-        perform public.claim_and_confirm('aaaaaaaa-0000-0000-0000-000000000001', 'wrong');
-        assert false, 'wrong token rejected';
-    exception when raise_exception then null;
-    end;
+    assert (select count(*) from public.open_confirmations) = 1, 'carl sees the open result';
+    assert (select count(*) from public.matches) = 1, 'linked opponent sees the pending match';
 end $$;
-
-select public.claim_and_confirm(:'m1', :'token') as status \gset
+select public.confirm_match(:'m1') as status \gset
 \if :{?status}
 \else
-    \echo 'claim failed' \q
+    \echo 'confirm failed' \q
 \endif
 
 reset role;
@@ -129,11 +130,11 @@ set role authenticated;
 select set_config('request.jwt.claim.sub', :'carl', false) \g /dev/null
 do $$ begin
     begin
-        perform public.claim_and_confirm('aaaaaaaa-0000-0000-0000-000000000001',
-            (select 'x'));
-        assert false, 'no second claim';
+        perform public.confirm_match('aaaaaaaa-0000-0000-0000-000000000001');
+        assert false, 'no second confirmation';
     exception when raise_exception then null;
     end;
+    assert (select count(*) from public.open_confirmations) = 0, 'nothing open any more';
     assert (select count(*) from public.matches) = 1, 'participant sees the match';
 end $$;
 
