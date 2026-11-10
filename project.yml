@@ -19,6 +19,10 @@ settings:
 packages:
   PadelScoring:
     path: Packages/PadelScoring
+  # Official Supabase client (accounts, database) – iPhone app only.
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.0.0
 
 targets:
   Pointcheck:
@@ -89,6 +93,8 @@ targets:
     dependencies:
       - package: PadelScoring
         product: PadelStats
+      - package: Supabase
+        product: Supabase
       - sdk: HealthKit.framework
       # Embeds the watch app ("Embed Watch Content").
       - target: Pointcheck

@@ -30,9 +30,22 @@ Matches mit Bestätigung durch den Gegner und die Spielstärke-Berechnung auf de
 2. Im Supabase-Dashboard **SQL Editor** öffnen.
 3. **Nur falls schon ein früherer Stand eingespielt wurde** (Fehler wie `type "profile_visibility" already exists`):
    den Inhalt von `reset.sql` einfügen und auf **Run** klicken. ⚠️ Das löscht alle Pointcheck-Daten.
-4. Den Inhalt von `migrations/20261110120000_initial_schema.sql` einfügen und auf **Run** klicken.
+4. Alle Dateien aus `migrations/` **der Reihe nach** (nach Dateiname sortiert) einfügen und jeweils auf **Run** klicken.
+   Später hinzukommende Migrationen werden genauso nachträglich ausgeführt – jede nur einmal.
 5. Unter **Authentication → Providers → Email** die Anmeldung per E-Mail aktiv lassen.
    „Mit Apple anmelden“ kommt später mit dem Apple Developer Program dazu.
+6. Die App meldet per **6-stelligem Code** an (kein Link). Dafür unter **Authentication → Emails** (Templates)
+   in den Vorlagen **„Magic Link“** und **„Confirm signup“** den Text ersetzen, z. B.:
+
+   ```html
+   <h2>Dein Pointcheck-Code</h2>
+   <p>Gib diesen Code in der App ein:</p>
+   <p style="font-size:28px;font-weight:bold;letter-spacing:4px">{{ .Token }}</p>
+   <p>Der Code ist eine Stunde gültig.</p>
+   ```
+
+   Hinweis: Der eingebaute E-Mail-Versand von Supabase schickt nur wenige Mails pro Stunde – zum Testen reicht das.
+   Für echte Nutzer später einen eigenen E-Mail-Dienst (SMTP) unter **Authentication → Emails → SMTP** eintragen.
 
 ⚠️ `tests/local_supabase_stub.sql` **nicht** in Supabase ausführen. Die Datei ersetzt Supabase nur für lokale Tests.
 

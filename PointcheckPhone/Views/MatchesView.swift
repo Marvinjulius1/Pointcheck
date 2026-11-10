@@ -121,6 +121,8 @@ struct MatchDetailView: View {
                 LabeledContent("40:40", value: match.goldenPoint ? "Golden Point" : "Vorteil")
             }
 
+            OnlineMatchSection(match: match)
+
             Section {
                 ShareResultButton(match: match, workout: workout)
             } footer: {

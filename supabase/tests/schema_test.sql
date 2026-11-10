@@ -104,6 +104,8 @@ end $$;
 select set_config('request.jwt.claim.sub', :'carl', false) \g /dev/null
 do $$ begin
     assert (select count(*) from public.open_confirmations) = 1, 'carl sees the open result';
+    assert (select creator_name from public.open_confirmations) = 'Alice',
+        'creator name visible although her profile is friends-only';
     assert (select count(*) from public.matches) = 1, 'linked opponent sees the pending match';
 end $$;
 select public.confirm_match(:'m1') as status \gset
@@ -149,6 +151,7 @@ select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
 do $$ begin
     assert (select count(*) from public.matches) = 0, 'match with private players stays hidden';
     assert (select count(*) from public.leaderboard) = 1, 'leaderboard: public profiles only';
+    assert (select count(*) from public.open_confirmations) = 0, 'no foreign open confirmations';
 end $$;
 
 -- Bob (friend of Alice) sees Alice's rating history, Eve does not.
@@ -162,7 +165,17 @@ end $$;
 select set_config('request.jwt.claim.sub', :'alice', false) \g /dev/null
 insert into public.matches (id, started_at, sets, winner_side)
 values (:'m2', now(), '[{"games":{"me":6,"opponent":0},"isComplete":true}]', 'a');
+insert into public.match_players (match_id, slot, profile_id) values (:'m2', 3, :'eve');
+-- The app replaces links by deleting slots > 1 and inserting again (while pending).
+delete from public.match_players where match_id = :'m2' and slot > 1;
 insert into public.match_players (match_id, slot, profile_id) values (:'m2', 3, :'dana');
+do $$ begin
+    assert (select count(*) from public.match_players where match_id = 'aaaaaaaa-0000-0000-0000-000000000002') = 2,
+        'creator + relinked opponent';
+    assert (select profile_id from public.match_players
+            where match_id = 'aaaaaaaa-0000-0000-0000-000000000002' and slot = 1)
+        = '11111111-1111-1111-1111-111111111111', 'creator slot survives relinking';
+end $$;
 
 select set_config('request.jwt.claim.sub', :'dana', false) \g /dev/null
 select public.dispute_match(:'m2') \g /dev/null
