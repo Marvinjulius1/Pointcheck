@@ -8,6 +8,8 @@ struct ScoreField: View {
     /// "Spiel" / "Satz" / "Match" while this team just won something.
     let banner: String?
     let isEnabled: Bool
+    /// Space at the top covered by the system clock / toolbar (top field only).
+    var contentTopInset: CGFloat = 0
     let action: () -> Void
 
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
@@ -18,39 +20,46 @@ struct ScoreField: View {
         RoundedRectangle(cornerRadius: Theme.fieldCornerRadius, style: .continuous)
     }
     private var isHighlighted: Bool { banner != nil }
+    /// Edge of the field that faces the centre strip.
+    private var labelEdge: VerticalEdge { team == .opponent ? .bottom : .top }
 
     var body: some View {
         GeometryReader { proxy in
+            let contentHeight = max(0, proxy.size.height - contentTopInset)
             ZStack {
                 Text(label)
-                    .font(Theme.scoreFont(size: min(proxy.size.height * 0.62, 64)))
+                    .font(Theme.scoreFont(size: min(contentHeight * 0.62, 64)))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .contentTransition(.numericText())
                     .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
 
+                // Team name and "Spiel"/"Satz" banner sit on the edge facing the centre strip,
+                // away from the clock and toolbar buttons at the top of the screen.
                 VStack {
-                    HStack {
+                    if labelEdge == .bottom { Spacer() }
+                    HStack(alignment: .center) {
                         Text(Theme.title(for: team).uppercased())
                             .font(.system(size: 10, weight: .semibold, design: .rounded))
                             .foregroundStyle(.white.opacity(0.7))
                         Spacer()
+                        if let banner {
+                            Text(banner.uppercased())
+                                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(.white.opacity(0.22), in: .capsule)
+                                .transition(.scale(scale: 0.6).combined(with: .opacity))
+                        }
                     }
-                    Spacer()
-                    if let banner {
-                        Text(banner.uppercased())
-                            .font(.system(size: 11, weight: .heavy, design: .rounded))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(.white.opacity(0.22), in: .capsule)
-                            .transition(.scale(scale: 0.6).combined(with: .opacity))
-                    }
+                    if labelEdge == .top { Spacer() }
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 8)
             }
+            .padding(.top, contentTopInset)
             .frame(width: proxy.size.width, height: proxy.size.height)
             .glassEffect(.regular.tint(tint.opacity(isHighlighted ? 0.75 : 0.5)).interactive(), in: shape)
             .background {

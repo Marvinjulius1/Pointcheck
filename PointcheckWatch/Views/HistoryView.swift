@@ -1,10 +1,16 @@
 import SwiftData
 import SwiftUI
 
-/// All matches, newest first. Swipe left on a row to delete.
+/// All matches, newest first. Swipe left on a row to delete, or clear everything at the bottom.
 struct HistoryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \MatchRecord.startDate, order: .reverse) private var matches: [MatchRecord]
+    @State private var showsClearDialog = false
+
+    /// Everything except a match that is still being played.
+    private var finishedMatches: [MatchRecord] {
+        matches.filter { $0.status != .live }
+    }
 
     var body: some View {
         List {
@@ -16,6 +22,16 @@ struct HistoryView: View {
                 }
             }
             .onDelete(perform: delete)
+
+            if !finishedMatches.isEmpty {
+                Section {
+                    Button(role: .destructive) {
+                        showsClearDialog = true
+                    } label: {
+                        Label("Verlauf leeren", systemImage: "trash")
+                    }
+                }
+            }
         }
         .overlay {
             if matches.isEmpty {
@@ -27,11 +43,24 @@ struct HistoryView: View {
             }
         }
         .navigationTitle("Verlauf")
+        .confirmationDialog("Verlauf leeren?", isPresented: $showsClearDialog, titleVisibility: .visible) {
+            Button(finishedMatches.count == 1 ? "1 Match löschen" : "\(finishedMatches.count) Matches löschen", role: .destructive, action: clearHistory)
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Alle beendeten Matches werden endgültig gelöscht. Ein laufendes Match bleibt erhalten.")
+        }
     }
 
     private func delete(at offsets: IndexSet) {
         for index in offsets {
             modelContext.delete(matches[index])
+        }
+        try? modelContext.save()
+    }
+
+    private func clearHistory() {
+        for match in finishedMatches {
+            modelContext.delete(match)
         }
         try? modelContext.save()
     }

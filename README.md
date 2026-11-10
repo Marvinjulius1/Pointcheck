@@ -47,6 +47,7 @@ Pointcheck/
 | Rückgängig | Digital Crown zurückdrehen (2 Rasten) **oder** horizontal über den Screen wischen |
 | Neues Match | `+` oben rechts → „Neues Match“ (das alte Match wird gespeichert) |
 | Verlauf / Einstellungen | `≡` oben links |
+| Verlauf leeren | Verlauf → ganz nach unten scrollen → „Verlauf leeren“ (ein laufendes Match bleibt erhalten) |
 
 Jedes Match wird beim ersten Punkt automatisch im Verlauf angelegt und nach jedem Punkt aktualisiert.
 Ist ein Match entschieden, ist es fertig gespeichert. Mit „Neues Match“ wird ein laufendes Match als „Abgebrochen“ abgelegt.

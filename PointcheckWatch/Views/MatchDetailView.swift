@@ -2,10 +2,14 @@ import PadelScoring
 import SwiftData
 import SwiftUI
 
-/// Details of one match. The opponent name can be entered via dictation,
-/// Scribble or the watch keyboard (system text input of `TextField`).
+/// Details of one match.
+///
+/// Opponent name: watchOS offers no API to force Scribble – `TextField` always opens the
+/// system input screen (dictation, Scribble, keyboard). To avoid typing on the small
+/// keyboard, previously used names are offered as one-tap suggestions.
 struct MatchDetailView: View {
     @Bindable var record: MatchRecord
+    @Query(sort: \MatchRecord.startDate, order: .reverse) private var allMatches: [MatchRecord]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var showsDeleteDialog = false
@@ -26,9 +30,26 @@ struct MatchDetailView: View {
                 .listRowBackground(Color.clear)
             }
 
-            Section("Gegner") {
+            Section {
                 TextField("Namen eintragen", text: $record.opponentName)
                     .onSubmit { try? modelContext.save() }
+            } header: {
+                Text("Gegner")
+            } footer: {
+                Text("Tipp: Im Eingabe-Bildschirm kannst du statt der Tastatur Diktat oder Scribble (Zeichnen) nutzen.")
+            }
+
+            if !nameSuggestions.isEmpty {
+                Section("Zuletzt gespielt gegen") {
+                    ForEach(nameSuggestions, id: \.self) { name in
+                        Button {
+                            record.opponentName = name
+                            try? modelContext.save()
+                        } label: {
+                            Label(name, systemImage: "person.2.fill")
+                        }
+                    }
+                }
             }
 
             Section("Sätze") {
@@ -72,6 +93,24 @@ struct MatchDetailView: View {
             }
             Button("Abbrechen", role: .cancel) {}
         }
+    }
+}
+
+extension MatchDetailView {
+    /// Distinct opponent names from other matches, most recent first.
+    var nameSuggestions: [String] {
+        let current = record.opponentName.trimmingCharacters(in: .whitespacesAndNewlines)
+        var seen = Set<String>()
+        var names: [String] = []
+        for match in allMatches where match.id != record.id {
+            let name = match.opponentName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let key = name.lowercased()
+            guard !name.isEmpty, name.caseInsensitiveCompare(current) != .orderedSame,
+                  seen.insert(key).inserted else { continue }
+            names.append(name)
+            if names.count == 6 { break }
+        }
+        return names
     }
 }
 

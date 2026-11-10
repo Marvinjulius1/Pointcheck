@@ -19,17 +19,23 @@ struct ScoreboardView: View {
     private var state: MatchState { controller.state }
 
     var body: some View {
-        GeometryReader { proxy in
-            let fieldHeight = max(0, (proxy.size.height - statusHeight) / 2)
-            VStack(spacing: 0) {
-                field(for: .opponent).frame(height: fieldHeight)
-                MatchStatusView(state: state, highlight: controller.highlight)
-                    .frame(height: statusHeight)
-                field(for: .me).frame(height: fieldHeight)
+        // The outer reader only measures the top safe area (clock + toolbar buttons).
+        // The inner layout ignores the safe area so the red field reaches the top edge;
+        // the system clock and buttons float on its glass (the clock cannot be hidden).
+        GeometryReader { outer in
+            let topInset = outer.safeAreaInsets.top
+            GeometryReader { proxy in
+                let fieldHeight = max(0, (proxy.size.height - statusHeight) / 2)
+                VStack(spacing: 0) {
+                    field(for: .opponent, topInset: topInset).frame(height: fieldHeight)
+                    MatchStatusView(state: state, highlight: controller.highlight)
+                        .frame(height: statusHeight)
+                    field(for: .me, topInset: 0).frame(height: fieldHeight)
+                }
             }
+            .padding(.horizontal, 2)
+            .ignoresSafeArea()
         }
-        .padding(.horizontal, 2)
-        .ignoresSafeArea(.container, edges: .bottom)
         .overlay {
             if state.isFinished, controller.highlight?.kind != .match {
                 MatchResultOverlay(state: state) {
@@ -92,16 +98,18 @@ struct ScoreboardView: View {
         }
     }
 
-    private func field(for team: Team) -> some View {
+    private func field(for team: Team, topInset: CGFloat) -> some View {
         ScoreField(
             team: team,
             label: state.pointLabel(for: team),
             banner: banner(for: team),
-            isEnabled: !state.isFinished
+            isEnabled: !state.isFinished,
+            contentTopInset: topInset
         ) {
             controller.score(team)
         }
-        .padding(.vertical, 2)
+        // Only a small gap towards the centre strip; the outer edges touch the display edge.
+        .padding(team == .opponent ? .bottom : .top, 2)
     }
 
     private func banner(for team: Team) -> String? {
