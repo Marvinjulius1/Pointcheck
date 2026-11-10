@@ -21,6 +21,17 @@ enum Haptics {
         }
     }
 
+    /// Played after the point/game haptic, so it is felt as a separate signal.
+    static func sideChange() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            device.play(.retry)
+        }
+    }
+
+    static func serveChanged() {
+        device.play(.click)
+    }
+
     static func undo() {
         device.play(.directionDown)
     }

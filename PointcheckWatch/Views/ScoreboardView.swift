@@ -107,8 +107,12 @@ struct ScoreboardView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Verlauf und Einstellungen")
 
-            MatchStatusView(state: state, highlight: controller.highlight)
-                .frame(maxWidth: .infinity)
+            MatchStatusView(
+                state: state,
+                highlight: controller.highlight,
+                showsSideChange: controller.showsSideChange
+            )
+            .frame(maxWidth: .infinity)
 
             Button {
                 showsNewMatchDialog = true
@@ -146,7 +150,9 @@ struct ScoreboardView: View {
             label: state.pointLabel(for: team),
             isHighlighted: controller.highlight?.team == team,
             isEnabled: !state.isFinished,
-            scoreFontSize: scoreSize
+            scoreFontSize: scoreSize,
+            isServing: !state.isFinished && state.server == team,
+            onServeTap: state.hasStarted ? nil : { controller.toggleFirstServer() }
         ) {
             controller.score(team)
         }

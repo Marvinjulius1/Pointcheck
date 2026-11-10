@@ -74,7 +74,7 @@ struct MatchDetailView: View {
                     LabeledContent("Dauer", value: Duration.seconds(endDate.timeIntervalSince(record.startDate))
                         .formatted(.units(allowed: [.hours, .minutes], width: .abbreviated)))
                 }
-                LabeledContent("Modus", value: record.bestOf == 1 ? "1 Satz" : "Best of \(record.bestOf)")
+                LabeledContent("Modus", value: modeText)
                 LabeledContent("40:40", value: record.goldenPoint ? "Golden Point" : "Vorteil")
             }
 
@@ -97,6 +97,11 @@ struct MatchDetailView: View {
 }
 
 extension MatchDetailView {
+    var modeText: String {
+        let sets = record.bestOf == 1 ? "1 Satz" : "Best of \(record.bestOf)"
+        return record.superTiebreak && record.bestOf > 1 ? "\(sets), Match-Tiebreak" : sets
+    }
+
     /// Distinct opponent names from other matches, most recent first.
     var nameSuggestions: [String] {
         let current = record.opponentName.trimmingCharacters(in: .whitespacesAndNewlines)

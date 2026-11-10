@@ -29,6 +29,8 @@ struct Highlight: Equatable {
 final class MatchController {
     private(set) var scorer: MatchScorer
     private(set) var highlight: Highlight?
+    /// Shown for a few seconds after a point that requires the teams to change ends.
+    private(set) var showsSideChange = false
 
     var state: MatchState { scorer.state }
 
@@ -37,6 +39,7 @@ final class MatchController {
     let workout: WorkoutManager
     @ObservationIgnored private var recordID: UUID?
     @ObservationIgnored private var highlightTask: Task<Void, Never>?
+    @ObservationIgnored private var sideChangeTask: Task<Void, Never>?
 
     init(repository: MatchRepository, activeStore: ActiveMatchStore = ActiveMatchStore(), workout: WorkoutManager) {
         self.repository = repository
@@ -67,6 +70,10 @@ final class MatchController {
         case .match(let team): show(Highlight(kind: .match, team: team), duration: 2.5)
         }
 
+        if state.isSideChange(after: outcome) {
+            showSideChange()
+        }
+
         persist()
 
         if case .match = outcome {
@@ -82,6 +89,7 @@ final class MatchController {
             return
         }
         Haptics.undo()
+        hideSideChange()
         show(Highlight(kind: .undo, team: nil), duration: 0.8)
         persist()
         if !state.hasStarted {
@@ -98,6 +106,7 @@ final class MatchController {
         recordID = nil
         scorer = MatchScorer(rules: AppSettings.currentRules())
         highlight = nil
+        hideSideChange()
         Haptics.newMatch()
         persist()
     }
@@ -105,8 +114,23 @@ final class MatchController {
     /// Applies changed settings right away, as long as no point has been played.
     func settingsDidChange() {
         guard !state.hasStarted else { return }
-        scorer.reset(rules: AppSettings.currentRules())
+        scorer.reset(rules: AppSettings.currentRules(), firstServer: state.firstServer)
         persist()
+    }
+
+    /// Before the first point: hands the serve to the other team.
+    func toggleFirstServer() {
+        guard scorer.setFirstServer(state.firstServer.other) else { return }
+        Haptics.serveChanged()
+        persist()
+    }
+
+    /// Short spoken/visual summary, e.g. for Siri: "30 zu 15".
+    var scoreSummary: String {
+        if let winner = state.winner {
+            return winner == .me ? "Match gewonnen!" : "Match verloren."
+        }
+        return "\(state.pointLabel(for: .me)) zu \(state.pointLabel(for: .opponent))"
     }
 
     var settingsDifferFromCurrentMatch: Bool {
@@ -118,6 +142,22 @@ final class MatchController {
     private func persist() {
         recordID = repository.sync(state, recordID: recordID)
         activeStore.save(.init(scorer: scorer, recordID: recordID))
+    }
+
+    private func showSideChange() {
+        sideChangeTask?.cancel()
+        showsSideChange = true
+        Haptics.sideChange()
+        sideChangeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            self?.showsSideChange = false
+        }
+    }
+
+    private func hideSideChange() {
+        sideChangeTask?.cancel()
+        showsSideChange = false
     }
 
     private func show(_ highlight: Highlight, duration: TimeInterval = 1.4) {

@@ -7,13 +7,15 @@ Eigenständige watchOS-26-App (SwiftUI, Liquid Glass, SwiftData). Ein iPhone wir
 ```
 Pointcheck/
 ├── project.yml                     # XcodeGen-Definition → erzeugt Pointcheck.xcodeproj
+├── docs/ROADMAP.md                 # Phasenplan (Watch → iPhone → Plattform → Hallen)
+├── PointcheckWidget/               # Complication fürs Zifferblatt
 ├── Packages/PadelScoring/          # Zähllogik als Swift Package (ohne UI)
 │   ├── Sources/PadelScoring/
 │   │   ├── Team.swift              # Team (.me / .opponent), TeamScore
 │   │   ├── MatchRules.swift        # Best of X, Einstand vs. Golden Point
 │   │   ├── MatchState.swift        # Punkte → Spiele → Sätze → Match, Tiebreak
 │   │   └── MatchScorer.swift       # State + Undo-Verlauf
-│   └── Tests/PadelScoringTests/    # 33 Tests (Swift Testing)
+│   └── Tests/PadelScoringTests/    # Tests (Swift Testing)
 └── PointcheckWatch/                # Die Watch-App
     ├── App/PointcheckApp.swift     # Einstieg, SwiftData-Container
     ├── Controller/
@@ -48,6 +50,12 @@ Pointcheck/
 | Neues Match | `+` rechts neben dem Spielstand → „Neues Match“ (das alte Match wird gespeichert) |
 | Verlauf / Einstellungen | `≡` links neben dem Spielstand |
 | Verlauf leeren | Verlauf → ganz nach unten scrollen → „Verlauf leeren“ (ein laufendes Match bleibt erhalten) |
+| Aufschlag festlegen | Vor dem 1. Punkt den gelben Ball antippen – er wechselt zum anderen Team. Danach wandert er automatisch |
+| Punkte per Siri | „Punkt für uns in Pointcheck“, „Punkt Gegner in Pointcheck“, „Rückgängig in Pointcheck“ |
+| App vom Zifferblatt starten | Complication „Pointcheck“ beim Bearbeiten des Zifferblatts hinzufügen |
+
+In der Mittelzeile erscheinen automatisch Hinweise: **Seitenwechsel** (mit Vibration), **Satzball** / **Matchball** in der Farbe des Teams,
+**Einstand**, **Golden Point**, **Tiebreak** und **Match-Tiebreak** (in den Einstellungen statt Entscheidungssatz aktivierbar).
 
 Jedes Match wird beim ersten Punkt automatisch im Verlauf angelegt und nach jedem Punkt aktualisiert.
 Ist ein Match entschieden, ist es fertig gespeichert. Mit „Neues Match“ wird ein laufendes Match als „Abgebrochen“ abgelegt.

@@ -6,6 +6,7 @@ struct SettingsView: View {
     @AppStorage(AppSettings.bestOfKey) private var bestOf = 3
     @AppStorage(AppSettings.goldenPointKey) private var goldenPoint = false
     @AppStorage(AppSettings.recordWorkoutKey) private var recordWorkout = true
+    @AppStorage(AppSettings.superTiebreakKey) private var superTiebreak = false
 
     var body: some View {
         List {
@@ -17,6 +18,15 @@ struct SettingsView: View {
                 }
             } footer: {
                 Text("Satz bei 6 Spielen mit 2 Vorsprung, bei 6:6 Tiebreak bis 7.")
+            }
+
+            Section {
+                Toggle("Match-Tiebreak", isOn: $superTiebreak)
+                    .disabled(bestOf == 1)
+            } footer: {
+                Text(bestOf == 1
+                     ? "Nur bei mehreren Sätzen verfügbar."
+                     : "Bei Satzgleichstand entscheidet ein Tiebreak bis 10 statt eines weiteren Satzes.")
             }
 
             Section {
@@ -44,5 +54,6 @@ struct SettingsView: View {
         .navigationTitle("Einstellungen")
         .onChange(of: bestOf) { controller.settingsDidChange() }
         .onChange(of: goldenPoint) { controller.settingsDidChange() }
+        .onChange(of: superTiebreak) { controller.settingsDidChange() }
     }
 }

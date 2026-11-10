@@ -18,6 +18,8 @@ final class MatchRecord {
     var isCompleted: Bool
     var bestOf: Int
     var goldenPoint: Bool
+    /// Match tiebreak instead of a deciding set. Default keeps older stores migratable.
+    var superTiebreak: Bool = false
 
     init(id: UUID = UUID(), startDate: Date = .now, rules: MatchRules) {
         self.id = id
@@ -29,6 +31,7 @@ final class MatchRecord {
         self.isCompleted = false
         self.bestOf = rules.bestOf
         self.goldenPoint = rules.deuceRule == .goldenPoint
+        self.superTiebreak = rules.superTiebreak
     }
 
     var sets: [SetScore] {
@@ -63,6 +66,7 @@ final class MatchRecord {
         winner = state.winner
         bestOf = state.rules.bestOf
         goldenPoint = state.rules.deuceRule == .goldenPoint
+        superTiebreak = state.rules.superTiebreak
         if state.isFinished {
             isCompleted = true
             endDate = endDate ?? .now
@@ -92,12 +96,17 @@ enum MatchStatus {
 }
 
 extension SetScore {
-    /// "6:4" (from my perspective).
-    var gamesText: String { "\(games.me):\(games.opponent)" }
+    /// "6:4" (from my perspective); a match tiebreak is written as "[10:8]".
+    var gamesText: String {
+        if isSuperTiebreak, let tiebreak {
+            return "[\(tiebreak.me):\(tiebreak.opponent)]"
+        }
+        return "\(games.me):\(games.opponent)"
+    }
 
     /// Loser's tiebreak points, as written in tennis results (7:6⁵).
     var tiebreakText: String? {
-        guard let tiebreak else { return nil }
+        guard let tiebreak, !isSuperTiebreak else { return nil }
         return "\(min(tiebreak.me, tiebreak.opponent))"
     }
 }

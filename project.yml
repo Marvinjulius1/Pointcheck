@@ -28,6 +28,7 @@ targets:
     dependencies:
       - package: PadelScoring
       - sdk: HealthKit.framework
+      - target: PointcheckWidget
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.yourname.pointcheck.watchkitapp
@@ -53,6 +54,26 @@ targets:
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
+
+  PointcheckWidget:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: PointcheckWidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.pointcheck.watchkitapp.widget
+        PRODUCT_NAME: PointcheckWidget
+        TARGETED_DEVICE_FAMILY: "4"
+        SKIP_INSTALL: YES
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: PointcheckWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Pointcheck
+        CFBundleDevelopmentRegion: de
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
 schemes:
   Pointcheck:
