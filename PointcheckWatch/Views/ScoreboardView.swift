@@ -15,22 +15,35 @@ struct ScoreboardView: View {
     /// Crown detents needed (backwards) for one undo – protects against accidental touches.
     private let crownUndoThreshold = 2.0
     private let statusHeight: CGFloat = 38
+    /// Diameter of the two round glass buttons at the bottom.
+    private let controlSize: CGFloat = 32
+    private let controlBottomPadding: CGFloat = 6
+    private var controlsInset: CGFloat { controlSize + controlBottomPadding + 4 }
 
     private var state: MatchState { controller.state }
 
     var body: some View {
-        // The outer reader only measures the top safe area (clock + toolbar buttons).
+        // The outer reader only measures the top safe area (system clock).
         // The inner layout ignores the safe area so the red field reaches the top edge;
-        // the system clock and buttons float on its glass (the clock cannot be hidden).
+        // the clock floats on its glass (third-party apps cannot hide it).
         GeometryReader { outer in
             let topInset = outer.safeAreaInsets.top
             GeometryReader { proxy in
                 let fieldHeight = max(0, (proxy.size.height - statusHeight) / 2)
+                // Same score size in both fields: based on the smaller visible area.
+                let visibleHeight = fieldHeight - max(topInset, controlsInset)
+                let scoreSize = min(max(visibleHeight, 0) * 0.62, 64)
                 VStack(spacing: 0) {
-                    field(for: .opponent, topInset: topInset).frame(height: fieldHeight)
+                    field(for: .opponent, scoreSize: scoreSize, topInset: topInset, bottomInset: 0)
+                        .frame(height: fieldHeight)
                     MatchStatusView(state: state, highlight: controller.highlight)
                         .frame(height: statusHeight)
-                    field(for: .me, topInset: 0).frame(height: fieldHeight)
+                    field(for: .me, scoreSize: scoreSize, topInset: 0, bottomInset: controlsInset)
+                        .frame(height: fieldHeight)
+                }
+                .overlay(alignment: .bottom) {
+                    bottomControls
+                        .padding(.bottom, controlBottomPadding)
                 }
             }
             .padding(.horizontal, 2)
@@ -64,27 +77,6 @@ struct ScoreboardView: View {
         .onChange(of: crownValue) { _, newValue in
             handleCrown(newValue)
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                NavigationLink {
-                    MenuView()
-                } label: {
-                    Image(systemName: "list.bullet")
-                        .foregroundStyle(.white)
-                }
-                .accessibilityLabel("Verlauf und Einstellungen")
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showsNewMatchDialog = true
-                } label: {
-                    Image(systemName: "plus")
-                        .foregroundStyle(.white)
-                }
-                .disabled(!state.hasStarted)
-                .accessibilityLabel("Neues Match")
-            }
-        }
         .confirmationDialog("Neues Match starten?", isPresented: $showsNewMatchDialog, titleVisibility: .visible) {
             Button("Neues Match") {
                 controller.startNewMatch()
@@ -98,13 +90,47 @@ struct ScoreboardView: View {
         }
     }
 
-    private func field(for team: Team, topInset: CGFloat) -> some View {
+    /// Menu (history/settings) and "new match", centred at the bottom edge.
+    private var bottomControls: some View {
+        HStack(spacing: 14) {
+            NavigationLink {
+                MenuView()
+            } label: {
+                controlIcon("list.bullet")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Verlauf und Einstellungen")
+
+            Button {
+                showsNewMatchDialog = true
+            } label: {
+                controlIcon("plus")
+            }
+            .buttonStyle(.plain)
+            .disabled(!state.hasStarted)
+            .opacity(state.hasStarted ? 1 : 0.4)
+            .accessibilityLabel("Neues Match")
+        }
+    }
+
+    private func controlIcon(_ systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: controlSize, height: controlSize)
+            .glassEffect(.regular.interactive(), in: .circle)
+            .contentShape(.circle)
+    }
+
+    private func field(for team: Team, scoreSize: CGFloat, topInset: CGFloat, bottomInset: CGFloat) -> some View {
         ScoreField(
             team: team,
             label: state.pointLabel(for: team),
             banner: banner(for: team),
             isEnabled: !state.isFinished,
-            contentTopInset: topInset
+            scoreFontSize: scoreSize,
+            contentTopInset: topInset,
+            contentBottomInset: bottomInset
         ) {
             controller.score(team)
         }

@@ -45,8 +45,8 @@ Pointcheck/
 | Punkt Gegner | Oberes, rotes Feld antippen |
 | Punkt für uns | Unteres, grünes Feld antippen |
 | Rückgängig | Digital Crown zurückdrehen (2 Rasten) **oder** horizontal über den Screen wischen |
-| Neues Match | `+` oben rechts → „Neues Match“ (das alte Match wird gespeichert) |
-| Verlauf / Einstellungen | `≡` oben links |
+| Neues Match | `+` unten mittig → „Neues Match“ (das alte Match wird gespeichert) |
+| Verlauf / Einstellungen | `≡` unten mittig |
 | Verlauf leeren | Verlauf → ganz nach unten scrollen → „Verlauf leeren“ (ein laufendes Match bleibt erhalten) |
 
 Jedes Match wird beim ersten Punkt automatisch im Verlauf angelegt und nach jedem Punkt aktualisiert.
