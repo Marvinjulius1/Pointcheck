@@ -73,15 +73,11 @@ struct ScoreboardView: View {
             handleCrown(newValue)
         }
         .toolbar {
-            // watchOS only centres the system clock when a top-bar trailing item exists
+            // watchOS only centres the system clock when both top-bar slots are filled
             // (Apple Developer Forums, thread 775912). The buttons live in the centre strip,
-            // so an invisible, non-interactive placeholder keeps the clock in the middle.
-            ToolbarItem(placement: .topBarTrailing) {
-                Color.clear
-                    .frame(width: 1, height: 1)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
+            // so invisible, non-interactive placeholders keep the clock in the middle.
+            ToolbarItem(placement: .topBarLeading) { clockPlaceholder }
+            ToolbarItem(placement: .topBarTrailing) { clockPlaceholder }
         }
         .confirmationDialog("Neues Match starten?", isPresented: $showsNewMatchDialog, titleVisibility: .visible) {
             Button("Neues Match") {
@@ -94,6 +90,13 @@ struct ScoreboardView: View {
         .task {
             await controller.workout.requestAuthorization()
         }
+    }
+
+    private var clockPlaceholder: some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     /// Menu button at the left edge, sets/games in the middle, "new match" at the right edge.
