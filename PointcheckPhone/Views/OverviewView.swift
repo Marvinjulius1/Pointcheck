@@ -14,21 +14,21 @@ struct OverviewView: View {
     private var matches: [MatchSummary] { account.allMatches(local: stored.map(\.summary)) }
 
     var body: some View {
-        let matches = matches
-        let overview = PadelStats.overview(matches)
+        let all = matches
+        let overview = PadelStats.overview(all)
         Group {
             if overview.matchesPlayed == 0 {
                 NoMatchesView()
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        RatingHero(matches: matches)
+                        RatingHero(matches: all)
                             .padding(.bottom, 8)
                         statistics(overview)
                         healthSection
-                        activitySection(matches)
-                        peopleSection(title: "Beste Partner", records: PadelStats.partners(matches), mode: .partners)
-                        peopleSection(title: "Rivalen", records: PadelStats.rivals(matches), mode: .rivals)
+                        activitySection(all)
+                        peopleSection(title: "Beste Partner", records: PadelStats.partners(all), mode: .partners)
+                        peopleSection(title: "Rivalen", records: PadelStats.rivals(all), mode: .rivals)
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 24)
@@ -41,7 +41,7 @@ struct OverviewView: View {
         .refreshable {
             sync.requestAll()
             await account.refresh()
-            await health.refresh(for: matches)
+            await health.refresh(for: all)
         }
     }
 
@@ -248,11 +248,11 @@ private struct RatingHero: View {
     }
 
     var body: some View {
-        let source = source
+        let data = source
         let now = Date.now
         let window = RatingSeries.window(
-            source.points,
-            current: source.current,
+            data.points,
+            current: data.current,
             since: range.days.map { now.addingTimeInterval(-$0 * 86_400) },
             now: now
         )
@@ -260,7 +260,7 @@ private struct RatingHero: View {
         let selected = selectedDate.flatMap { date in
             window.min { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }
         }
-        let shown = selected?.rating ?? source.current
+        let shown = selected?.rating ?? data.current
         let isUp = change.delta >= 0
         let lineColor = isUp ? Theme.me : Theme.opponent
 
@@ -289,7 +289,7 @@ private struct RatingHero: View {
                         ChangeLabel(change: change.delta, base: change.base, suffix: range.description)
                     }
 
-                    Text("Level \(PadelLevel.level(for: shown).formatted(.number.precision(.fractionLength(1)))) · \(PadelLevel.name(for: PadelLevel.level(for: shown)))\(source.isServer ? "" : " · Vorschau")")
+                    Text("Level \(PadelLevel.level(for: shown).formatted(.number.precision(.fractionLength(1)))) · \(PadelLevel.name(for: PadelLevel.level(for: shown)))\(data.isServer ? "" : " · Vorschau")")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

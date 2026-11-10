@@ -15,6 +15,8 @@ Matches mit Bestätigung durch den Gegner und die Spielstärke-Berechnung auf de
 | `open_confirmations` | Ergebnisse, die ich als verlinkter Gegner noch bestätigen muss |
 | `confirm_match` / `dispute_match` | Ergebnis in der App bestätigen bzw. ablehnen |
 | `find_profile(username)` | Spieler finden, um ihn im Match zu verlinken oder als Freund hinzuzufügen |
+| `my_friends()`, `request_friend`, `accept_friend`, `remove_friend` | Freundesliste mit Namen, Anfragen senden/annehmen/entfernen |
+| `my_match_feed()` | Alle Matches, in denen ich spiele – aus meiner Sicht, mit Namen der Mitspieler |
 
 **Sicherheitsregeln (Row Level Security):**
 - Private Profile sehen nur Freunde.

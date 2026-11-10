@@ -7,24 +7,30 @@ struct MatchesView: View {
     @Environment(WatchSync.self) private var sync
     @Environment(AccountService.self) private var account
 
+    private struct MonthGroup: Identifiable {
+        let month: Date
+        let matches: [MatchSummary]
+        var id: Date { month }
+    }
+
     /// Watch matches and confirmed matches entered by co-players, grouped by month.
-    private var months: [(month: Date, matches: [MatchSummary])] {
+    private var monthGroups: [MonthGroup] {
         let all = account.allMatches(local: stored.map(\.summary)).sorted { $0.startDate > $1.startDate }
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: all) {
             calendar.dateInterval(of: .month, for: $0.startDate)?.start ?? $0.startDate
         }
-        return grouped.keys.sorted(by: >).map { ($0, grouped[$0] ?? []) }
+        return grouped.keys.sorted(by: >).map { MonthGroup(month: $0, matches: grouped[$0] ?? []) }
     }
 
     var body: some View {
-        let months = months
+        let groups = monthGroups
         Group {
-            if months.isEmpty {
+            if groups.isEmpty {
                 NoMatchesView()
             } else {
                 List {
-                    ForEach(months, id: \.month) { group in
+                    ForEach(groups) { group in
                         Section(group.month.formatted(.dateTime.month(.wide).year())) {
                             ForEach(group.matches) { match in
                                 NavigationLink {

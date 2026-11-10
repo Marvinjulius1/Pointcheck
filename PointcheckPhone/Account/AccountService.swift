@@ -32,9 +32,9 @@ final class AccountService {
         get { access(keyPath: \.autoUpload); return UserDefaults.standard.object(forKey: Self.autoUploadKey) as? Bool ?? true }
         set { withMutation(keyPath: \.autoUpload) { UserDefaults.standard.set(newValue, forKey: Self.autoUploadKey) } }
     }
-    @ObservationIgnored private static let autoUploadKey = "account.autoUpload"
+    private static let autoUploadKey = "account.autoUpload"
     /// Only matches started after this moment are uploaded automatically (no surprise bulk upload).
-    @ObservationIgnored private static let autoUploadSinceKey = "account.autoUploadSince"
+    private static let autoUploadSinceKey = "account.autoUploadSince"
 
     @ObservationIgnored let client = SupabaseClient(
         supabaseURL: SupabaseConfig.url,
@@ -134,33 +134,52 @@ final class AccountService {
 
     // MARK: - Loading
 
+    /// Loads everything independently, so one missing piece (e.g. a migration not yet
+    /// run in Supabase) does not block the rest.
     func refresh() async {
         guard let userID else { return }
-        do {
-            profile = try await client.from("profiles")
-                .select()
-                .eq("id", value: userID)
-                .single()
-                .execute()
-                .value
-            openConfirmations = try await client.from("open_confirmations")
-                .select()
-                .order("started_at", ascending: false)
-                .execute()
-                .value
-            let feed: [FeedMatch] = try await client.rpc("my_match_feed").execute().value
+
+        if let loaded: RemoteProfile = await load("profile", {
+            try await self.client.from("profiles").select().eq("id", value: userID).single().execute().value
+        }) {
+            profile = loaded
+        }
+
+        if let loaded: [OpenConfirmation] = await load("open confirmations", {
+            try await self.client.from("open_confirmations").select()
+                .order("started_at", ascending: false).execute().value
+        }) {
+            openConfirmations = loaded
+        }
+
+        if let feed: [FeedMatch] = await load("match feed", {
+            try await self.client.rpc("my_match_feed").execute().value
+        }) {
             uploads = Dictionary(feed.filter(\.createdByMe).map { ($0.matchID, $0.status) }, uniquingKeysWith: { a, _ in a })
             foreignIDs = Set(feed.filter { !$0.createdByMe }.map(\.matchID))
             foreignMatches = feed.filter { !$0.createdByMe && $0.status == .confirmed }.map(\.summary)
-            friends = try await client.rpc("my_friends").execute().value
-            ratingHistory = try await client.from("rating_history")
-                .select("id, rating_before, rating_after, created_at")
-                .eq("profile_id", value: userID)
-                .order("created_at")
-                .execute()
-                .value
+        }
+
+        if let loaded: [Friend] = await load("friends", {
+            try await self.client.rpc("my_friends").execute().value
+        }) {
+            friends = loaded
+        }
+
+        if let loaded: [RatingHistoryRow] = await load("rating history", {
+            try await self.client.from("rating_history").select("id, rating_before, rating_after, created_at")
+                .eq("profile_id", value: userID).order("created_at").execute().value
+        }) {
+            ratingHistory = loaded
+        }
+    }
+
+    private func load<T>(_ what: String, _ work: () async throws -> T) async -> T? {
+        do {
+            return try await work()
         } catch {
-            print("Refreshing account failed: \(error)")
+            print("Loading \(what) failed: \(error)")
+            return nil
         }
     }
 

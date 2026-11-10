@@ -42,7 +42,10 @@ Hallen und Clubs bekommen später eine Web-Ansicht.
 - Ergebnis-Bestätigung durch den Gegner: Ersteller verlinkt das Profil des Gegners, der Gegner bestätigt oder lehnt in seiner App ab – ✅ Datenbank und iPhone-App („Offene Bestätigungen“)
 - **Spielstärke-Wert** (Elo-ähnlich, für Doppel) – ✅ Rechenlogik fertig und getestet; ✅ lokale Vorschau in der iPhone-App (Level 1.0–7.0, Verlauf, „Dein Kreis“). Fehlt: echte Werte aller Mitspieler über Konten
 - ✅ Öffentliche Rangliste in der iPhone-App
-- Freunde hinzufügen (Datenbank fertig, Oberfläche fehlt)
+- ✅ Freunde: per @benutzername hinzufügen, Anfragen annehmen/ablehnen, Freundesliste mit Spielstärke
+- ✅ Von Mitspielern eingetragene, bestätigte Matches zählen in allen Statistiken
+- ✅ Neue Watch-Matches werden nach der Anmeldung automatisch hochgeladen (abschaltbar)
+- ✅ Übersicht im Finanz-App-Stil: Spielstärke wie ein Depotwert mit Verlauf (1W–Max)
 - **Gegner suchen** (ähnliche Spielstärke, in der Nähe)
 
 ## Phase 4 – Hallen & Clubs (Business)
