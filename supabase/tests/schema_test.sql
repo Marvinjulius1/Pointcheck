@@ -194,4 +194,55 @@ do $$ begin
         'disputed matches are not rated';
 end $$;
 
+-- ---------------------------------------------------------------- friends functions
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'alice', false) \g /dev/null
+do $$ begin
+    assert (select count(*) from public.my_friends() where status = 'accepted') = 2, 'alice: bob + dana';
+    assert (select rating from public.my_friends() where display_name = 'bob') = 1530, 'friends see rating';
+end $$;
+
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+select public.request_friend(:'carl') \g /dev/null
+do $$ begin
+    assert (select status from public.my_friends()) = 'pending', 'eve asked carl';
+    assert (select incoming from public.my_friends()) = false;
+    assert (select rating from public.my_friends()) is null, 'no rating before acceptance';
+    begin
+        perform public.request_friend('55555555-5555-5555-5555-555555555555');
+        assert false, 'no friendship with yourself';
+    exception when raise_exception then null;
+    end;
+end $$;
+
+select set_config('request.jwt.claim.sub', :'carl', false) \g /dev/null
+do $$ begin
+    assert (select incoming from public.my_friends() where display_name = 'eve'), 'carl sees incoming request';
+    -- Asking back accepts the existing request instead of failing on the unique pair.
+    assert public.request_friend('55555555-5555-5555-5555-555555555555') = 'accepted';
+    perform public.remove_friend('55555555-5555-5555-5555-555555555555');
+    assert (select count(*) from public.my_friends()) = 0, 'friendship removed';
+end $$;
+
+-- ---------------------------------------------------------------- match feed
+do $$ declare r record; begin
+    select * into r from public.my_match_feed() where match_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+    assert r.my_side = 'b' and not r.created_by_me, 'carl played on side B';
+    assert r.opponent_names = 'Alice & bob', 'names of the other team';
+    assert r.partner_name is null, 'carl had no partner';
+    assert r.status = 'confirmed';
+end $$;
+
+select set_config('request.jwt.claim.sub', :'bob', false) \g /dev/null
+do $$ declare r record; begin
+    select * into r from public.my_match_feed() where match_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+    assert r.my_side = 'a' and r.partner_name = 'Alice' and r.opponent_names = 'Carl', 'bob: partner Alice vs Carl';
+end $$;
+
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+do $$ begin
+    assert (select count(*) from public.my_match_feed()) = 0, 'feed only contains own matches';
+end $$;
+reset role;
+
 \echo 'All schema tests passed.'
