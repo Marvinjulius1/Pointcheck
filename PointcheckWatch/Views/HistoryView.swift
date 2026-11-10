@@ -1,3 +1,4 @@
+import PadelStats
 import SwiftData
 import SwiftUI
 
@@ -52,17 +53,18 @@ struct HistoryView: View {
     }
 
     private func delete(at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(matches[index])
-        }
+        let doomed = offsets.map { matches[$0] }
+        let ids = doomed.map(\.id)
+        doomed.forEach { modelContext.delete($0) }
         try? modelContext.save()
+        PhoneSync.shared.sendDeletion(ids)
     }
 
     private func clearHistory() {
-        for match in finishedMatches {
-            modelContext.delete(match)
-        }
+        let ids = finishedMatches.map(\.id)
+        finishedMatches.forEach { modelContext.delete($0) }
         try? modelContext.save()
+        PhoneSync.shared.sendDeletion(ids)
     }
 }
 
@@ -84,7 +86,9 @@ struct MatchRow: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
-            Text(record.startDate.relativeDayAndTime)
+            Text(record.partnerName.isEmpty
+                 ? record.startDate.relativeDayAndTime
+                 : "\(record.startDate.relativeDayAndTime) · mit \(record.partnerName)")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -93,7 +97,7 @@ struct MatchRow: View {
 
     private var setsText: String {
         let sets = record.sets
-        return sets.isEmpty ? "0:0" : sets.map(\.gamesText).joined(separator: "  ")
+        return sets.isEmpty ? "0:0" : sets.map(\.resultText).joined(separator: "  ")
     }
 }
 

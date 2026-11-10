@@ -84,6 +84,7 @@ final class MatchController {
     }
 
     func undo() {
+        let wasFinished = state.isFinished
         guard scorer.undo() else {
             Haptics.rejected()
             return
@@ -92,6 +93,10 @@ final class MatchController {
         hideSideChange()
         show(Highlight(kind: .undo, team: nil), duration: 0.8)
         persist()
+        if wasFinished, let recordID {
+            // The match is running again – it reappears on the iPhone once it is finished.
+            PhoneSync.shared.sendDeletion([recordID])
+        }
         if !state.hasStarted {
             workout.discard()
         }
@@ -101,6 +106,9 @@ final class MatchController {
     func startNewMatch() {
         if let recordID, state.hasStarted {
             repository.complete(id: recordID)
+            if let record = repository.record(id: recordID) {
+                PhoneSync.shared.send([record.summary])
+            }
         }
         workout.end()
         recordID = nil
@@ -142,6 +150,9 @@ final class MatchController {
     private func persist() {
         recordID = repository.sync(state, recordID: recordID)
         activeStore.save(.init(scorer: scorer, recordID: recordID))
+        if state.isFinished, let recordID, let record = repository.record(id: recordID) {
+            PhoneSync.shared.send([record.summary])
+        }
     }
 
     private func showSideChange() {

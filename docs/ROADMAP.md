@@ -20,15 +20,20 @@ Hallen und Clubs bekommen später eine Web-Ansicht.
 | Complication fürs Zifferblatt (Tipp öffnet direkt den Zähler) | ✅ |
 
 ## Phase 2 – iPhone-App: persönliche Statistik
-*Noch ohne Server: Daten kommen per Watch ↔ iPhone-Verbindung.*
+*Ohne Server und ohne bezahltes Developer-Programm: Daten kommen per Watch ↔ iPhone-Verbindung (WatchConnectivity).*
 
-- iPhone-App als Begleiter (Watch-App bleibt eigenständig nutzbar)
-- Übertragung der Matches von der Watch aufs iPhone (WatchConnectivity)
-- Statistik-Übersicht: Siegquote, Matches pro Woche, Tiebreak-Bilanz, Trainingsdaten aus Health
-- **Partner-Statistik** (mit wem gewinnst du am häufigsten) → dafür auf der Watch optional „Partner“ eintragen
-- **Rivalen-Bilanz** („Du gegen Max: 7:4“)
-- **Abzeichen & Serien**
-- **Teilbare Ergebnis-Karte** (Bild für Instagram/WhatsApp)
+| Funktion | Status |
+|---|---|
+| iPhone-App als Begleiter (Watch-App bleibt eigenständig nutzbar) | ✅ |
+| Übertragung beendeter Matches, Namensänderungen und Löschungen von der Watch | ✅ |
+| Gesamten Verlauf von der Watch laden (erster Start, Pull-to-Refresh) | ✅ |
+| Partner auf der Watch eintragen (mit Namensvorschlägen) | ✅ |
+| Übersicht: Siegquote, Matches, Serien, Tiebreak-Bilanz, Sätze, Spielzeit, 8-Wochen-Diagramm | ✅ |
+| **Partner-Statistik** und **Rivalen-Bilanz** | ✅ |
+| **Abzeichen & Serien** (11 Erfolge mit Fortschritt) | ✅ |
+| **Teilbare Ergebnis-Karte** (Bild für Instagram/WhatsApp) | ✅ |
+| Trainingsdaten aus Health (Herzfrequenz, Kalorien) pro Match | offen |
+| iCloud-Sync (braucht das bezahlte Developer-Programm) | offen → Phase 3 |
 
 ## Phase 3 – Plattform: Konten & Spielstärke
 *Braucht einen Server (CloudKit oder eigener Backend-Dienst) und das bezahlte Apple Developer Program.*

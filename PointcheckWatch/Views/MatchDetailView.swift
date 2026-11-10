@@ -1,4 +1,4 @@
-import PadelScoring
+import PadelStats
 import SwiftData
 import SwiftUI
 
@@ -30,25 +30,28 @@ struct MatchDetailView: View {
                 .listRowBackground(Color.clear)
             }
 
-            Section {
-                TextField("Namen eintragen", text: $record.opponentName)
-                    .onSubmit { try? modelContext.save() }
-            } header: {
-                Text("Gegner")
-            } footer: {
-                Text("Tipp: Im Eingabe-Bildschirm kannst du statt der Tastatur Diktat oder Scribble (Zeichnen) nutzen.")
-            }
-
-            if !nameSuggestions.isEmpty {
-                Section("Zuletzt gespielt gegen") {
-                    ForEach(nameSuggestions, id: \.self) { name in
-                        Button {
-                            record.opponentName = name
-                            try? modelContext.save()
-                        } label: {
-                            Label(name, systemImage: "person.2.fill")
-                        }
-                    }
+            Section("Spieler") {
+                NavigationLink {
+                    NameEditorView(
+                        title: "Gegner",
+                        placeholder: "Gegner eintragen",
+                        name: $record.opponentName,
+                        suggestions: recentNames(\.opponentName),
+                        onCommit: commitNames
+                    )
+                } label: {
+                    PersonRow(role: "Gegner", name: record.opponentName, symbol: "person.2.fill", tint: Theme.opponent)
+                }
+                NavigationLink {
+                    NameEditorView(
+                        title: "Partner",
+                        placeholder: "Partner eintragen",
+                        name: $record.partnerName,
+                        suggestions: recentNames(\.partnerName),
+                        onCommit: commitNames
+                    )
+                } label: {
+                    PersonRow(role: "Partner", name: record.partnerName, symbol: "person.fill", tint: Theme.me)
                 }
             }
 
@@ -87,8 +90,10 @@ struct MatchDetailView: View {
         .navigationTitle(record.displayTitle)
         .confirmationDialog("Match löschen?", isPresented: $showsDeleteDialog, titleVisibility: .visible) {
             Button("Löschen", role: .destructive) {
+                let id = record.id
                 modelContext.delete(record)
                 try? modelContext.save()
+                PhoneSync.shared.sendDeletion([id])
                 dismiss()
             }
             Button("Abbrechen", role: .cancel) {}
@@ -102,20 +107,22 @@ extension MatchDetailView {
         return record.superTiebreak && record.bestOf > 1 ? "\(sets), Match-Tiebreak" : sets
     }
 
-    /// Distinct opponent names from other matches, most recent first.
-    var nameSuggestions: [String] {
-        let current = record.opponentName.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Distinct names used in other matches (most recent first), for one-tap entry.
+    func recentNames(_ keyPath: KeyPath<MatchRecord, String>) -> [String] {
         var seen = Set<String>()
         var names: [String] = []
         for match in allMatches where match.id != record.id {
-            let name = match.opponentName.trimmingCharacters(in: .whitespacesAndNewlines)
-            let key = name.lowercased()
-            guard !name.isEmpty, name.caseInsensitiveCompare(current) != .orderedSame,
-                  seen.insert(key).inserted else { continue }
+            let name = match[keyPath: keyPath].trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, seen.insert(name.lowercased()).inserted else { continue }
             names.append(name)
-            if names.count == 6 { break }
+            if names.count == 8 { break }
         }
         return names
+    }
+
+    func commitNames() {
+        try? modelContext.save()
+        PhoneSync.shared.send([record.summary])
     }
 }
 
@@ -125,7 +132,7 @@ private struct SetResultText: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 1) {
-            Text(set.gamesText)
+            Text(set.resultText)
                 .font(Theme.scoreFont(size: 17))
                 .foregroundStyle(color)
             if let tiebreak = set.tiebreakText {
@@ -142,5 +149,82 @@ private struct SetResultText: View {
         case .opponent: Theme.opponent
         case nil: .primary
         }
+    }
+}
+
+/// "Gegner  Max ›" row in the match details.
+private struct PersonRow: View {
+    let role: String
+    let name: String
+    let symbol: String
+    let tint: Color
+
+    var body: some View {
+        HStack {
+            Image(systemName: symbol)
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(role)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Text(name.isEmpty ? "Eintragen" : name)
+                    .foregroundStyle(name.isEmpty ? .secondary : .primary)
+                    .lineLimit(1)
+            }
+        }
+    }
+}
+
+/// Name entry for opponent or partner: system text input (dictation, Scribble, keyboard)
+/// plus previously used names as one-tap suggestions.
+struct NameEditorView: View {
+    let title: String
+    let placeholder: String
+    @Binding var name: String
+    let suggestions: [String]
+    let onCommit: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            Section {
+                TextField(placeholder, text: $name)
+                    .onSubmit(onCommit)
+            } footer: {
+                Text("Statt zu tippen: Diktat oder Scribble (Zeichnen) im Eingabe-Bildschirm wählen.")
+            }
+
+            if !suggestions.isEmpty {
+                Section("Zuletzt") {
+                    ForEach(suggestions, id: \.self) { suggestion in
+                        Button {
+                            name = suggestion
+                            onCommit()
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Text(suggestion)
+                                Spacer()
+                                if suggestion.caseInsensitiveCompare(name) == .orderedSame {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(Theme.me)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !name.isEmpty {
+                Section {
+                    Button("Entfernen", role: .destructive) {
+                        name = ""
+                        onCommit()
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .navigationTitle(title)
     }
 }

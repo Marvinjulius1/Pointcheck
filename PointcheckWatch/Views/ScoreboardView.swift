@@ -1,4 +1,4 @@
-import PadelScoring
+import PadelStats
 import SwiftUI
 
 /// Main screen: opponent field on top, our field at the bottom, sets/games in between.
@@ -201,7 +201,7 @@ private struct MatchResultOverlay: View {
             Text(didWin ? "Gewonnen!" : "Verloren")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
 
-            Text(state.completedSets.map(\.gamesText).joined(separator: "  "))
+            Text(state.completedSets.map(\.resultText).joined(separator: "  "))
                 .font(Theme.scoreFont(size: 15))
                 .foregroundStyle(.secondary)
 

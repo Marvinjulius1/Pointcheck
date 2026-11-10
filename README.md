@@ -1,6 +1,8 @@
 # Pointcheck – Padel-Zähler für die Apple Watch
 
-Eigenständige watchOS-26-App (SwiftUI, Liquid Glass, SwiftData). Ein iPhone wird nicht benötigt.
+watchOS-26-App zum Zählen (SwiftUI, Liquid Glass, SwiftData) plus iPhone-App für Statistik.
+Die Watch-App funktioniert auch ohne iPhone. Die iPhone-App bekommt die Matches automatisch von der Watch.
+Phasenplan: [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Projektstruktur
 
@@ -9,12 +11,14 @@ Pointcheck/
 ├── project.yml                     # XcodeGen-Definition → erzeugt Pointcheck.xcodeproj
 ├── docs/ROADMAP.md                 # Phasenplan (Watch → iPhone → Plattform → Hallen)
 ├── PointcheckWidget/               # Complication fürs Zifferblatt
+├── PointcheckPhone/                # iPhone-App: Übersicht, Matches, Partner/Rivalen, Erfolge, Teilen
 ├── Packages/PadelScoring/          # Zähllogik als Swift Package (ohne UI)
 │   ├── Sources/PadelScoring/
 │   │   ├── Team.swift              # Team (.me / .opponent), TeamScore
 │   │   ├── MatchRules.swift        # Best of X, Einstand vs. Golden Point
 │   │   ├── MatchState.swift        # Punkte → Spiele → Sätze → Match, Tiebreak
 │   │   └── MatchScorer.swift       # State + Undo-Verlauf
+│   ├── Sources/PadelStats/         # Übertragungsformat Watch ↔ iPhone, Statistik, Abzeichen
 │   └── Tests/PadelScoringTests/    # Tests (Swift Testing)
 └── PointcheckWatch/                # Die Watch-App
     ├── App/PointcheckApp.swift     # Einstieg, SwiftData-Container
@@ -106,13 +110,20 @@ open Pointcheck.xcodeproj
 4. In Xcode unter *Window → Devices and Simulators* warten, bis die Watch erscheint. Watch entsperrt und nah am Mac/iPhone lassen. Die erste Verbindung kann ein paar Minuten dauern.
 
 ### 4. Starten
+
+**Mit iPhone-App (empfohlen):** Schema **PointcheckPhone** und als Ziel dein **iPhone** wählen, dann **⌘R** drücken.
+Xcode installiert die iPhone-App und überträgt die Watch-App mit. Die Watch-App erscheint danach auf der Watch.
+Falls sie dort nicht automatisch auftaucht: iPhone → App **Watch** → ganz nach unten → Pointcheck → **Installieren**.
+
+**Nur die Watch-App:**
 1. Oben in der Xcode-Leiste Schema **Pointcheck** und als Ziel deine **Apple Watch** wählen.
 2. **⌘R** drücken. Xcode baut und installiert die App auf der Watch.
 3. Beim ersten Start der App auf der Watch den Health-Zugriff erlauben.
 4. Nur bei kostenlosem Account: Falls die Watch „Nicht vertrauenswürdiger Entwickler“ meldet, auf dem iPhone unter
    *Einstellungen → Allgemein → VPN & Geräteverwaltung* dein Entwicklerprofil bestätigen.
 
-Ausprobieren ohne Watch: Als Ziel einen **Apple Watch Simulator** wählen und ⌘R drücken. Die Krone simulierst du mit dem Scrollrad bzw. Trackpad.
+Ausprobieren ohne Geräte: Schema **PointcheckPhone** mit einem **iPhone-Simulator** starten, der mit einem Watch-Simulator gekoppelt ist.
+Alternativ Schema **Pointcheck** mit einem **Apple Watch Simulator** starten. Die Krone simulierst du mit dem Scrollrad bzw. Trackpad.
 
 ### Ohne XcodeGen (manuell)
 1. Xcode → *File → New → Project → watchOS → App* → „Watch-only App“, Name `Pointcheck`, Interface SwiftUI, Storage None.

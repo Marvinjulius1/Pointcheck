@@ -1,5 +1,5 @@
 import Foundation
-import PadelScoring
+import PadelStats
 import SwiftData
 
 /// A match in the history. Created on the first point and kept in sync with
@@ -10,6 +10,8 @@ final class MatchRecord {
     var startDate: Date
     var endDate: Date?
     var opponentName: String
+    /// Doubles partner. Default keeps older stores migratable.
+    var partnerName: String = ""
     /// JSON-encoded `[SetScore]` (keeps tiebreak details).
     var setsData: Data
     /// `Team.rawValue` of the winner, `nil` while running or if abandoned.
@@ -26,6 +28,7 @@ final class MatchRecord {
         self.startDate = startDate
         self.endDate = nil
         self.opponentName = ""
+        self.partnerName = ""
         self.setsData = Data()
         self.winnerRaw = nil
         self.isCompleted = false
@@ -95,15 +98,26 @@ enum MatchStatus {
     }
 }
 
-extension SetScore {
-    /// "6:4" (from my perspective); a match tiebreak is written as "[10:8]".
-    var gamesText: String {
-        if isSuperTiebreak, let tiebreak {
-            return "[\(tiebreak.me):\(tiebreak.opponent)]"
-        }
-        return "\(games.me):\(games.opponent)"
+extension MatchRecord {
+    /// Exchange format for the iPhone app.
+    var summary: MatchSummary {
+        MatchSummary(
+            id: id,
+            startDate: startDate,
+            endDate: endDate,
+            opponentName: opponentName,
+            partnerName: partnerName,
+            sets: sets,
+            winner: winner,
+            isCompleted: isCompleted,
+            bestOf: bestOf,
+            goldenPoint: goldenPoint,
+            superTiebreak: superTiebreak
+        )
     }
+}
 
+extension SetScore {
     /// Loser's tiebreak points, as written in tennis results (7:6⁵).
     var tiebreakText: String? {
         guard let tiebreak, !isSuperTiebreak else { return nil }

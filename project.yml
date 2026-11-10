@@ -6,6 +6,7 @@ options:
   developmentLanguage: de
   deploymentTarget:
     watchOS: "26.0"
+    iOS: "26.0"
   createIntermediateGroups: true
 
 settings:
@@ -27,6 +28,9 @@ targets:
       - path: PointcheckWatch
     dependencies:
       - package: PadelScoring
+        product: PadelScoring
+      - package: PadelScoring
+        product: PadelStats
       - sdk: HealthKit.framework
       - target: PointcheckWidget
     settings:
@@ -44,7 +48,9 @@ targets:
         CFBundleDisplayName: Pointcheck
         CFBundleDevelopmentRegion: de
         WKApplication: true
-        WKWatchOnly: true
+        # Companion of the iPhone app, but fully usable without it.
+        WKCompanionAppBundleIdentifier: com.yourname.pointcheck
+        WKRunsIndependentlyOfCompanionApp: true
         WKBackgroundModes:
           - workout-processing
         NSHealthShareUsageDescription: Pointcheck liest Herzfrequenz und Kalorien, um dein Padel-Match als Training aufzuzeichnen.
@@ -75,7 +81,49 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
+  PointcheckPhone:
+    type: application
+    platform: iOS
+    sources:
+      - path: PointcheckPhone
+    dependencies:
+      - package: PadelScoring
+        product: PadelStats
+      # Embeds the watch app ("Embed Watch Content").
+      - target: Pointcheck
+        embed: true
+        codeSign: true
+        copy:
+          destination: productsDirectory
+          subpath: $(CONTENTS_FOLDER_PATH)/Watch
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.pointcheck
+        PRODUCT_NAME: Pointcheck
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_PREVIEWS: YES
+    info:
+      path: PointcheckPhone/Info.plist
+      properties:
+        CFBundleDisplayName: Pointcheck
+        CFBundleDevelopmentRegion: de
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+
 schemes:
+  PointcheckPhone:
+    build:
+      targets:
+        PointcheckPhone: all
+    run:
+      config: Debug
+    archive:
+      config: Release
   Pointcheck:
     build:
       targets:
