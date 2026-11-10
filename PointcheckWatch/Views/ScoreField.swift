@@ -5,8 +5,8 @@ import SwiftUI
 struct ScoreField: View {
     let team: Team
     let label: String
-    /// "Spiel" / "Satz" / "Match" while this team just won something.
-    let banner: String?
+    /// Glows briefly after this team won a game, set or match.
+    let isHighlighted: Bool
     let isEnabled: Bool
     /// Shared by both fields so the red and green numbers are always the same size.
     let scoreFontSize: CGFloat
@@ -19,45 +19,23 @@ struct ScoreField: View {
     private var shape: RoundedRectangle {
         RoundedRectangle(cornerRadius: Theme.fieldCornerRadius, style: .continuous)
     }
-    private var isHighlighted: Bool { banner != nil }
-    /// Edge of the field that faces the centre strip.
-    private var labelEdge: VerticalEdge { team == .opponent ? .bottom : .top }
+    /// Gap between the number and the edge facing the centre strip.
+    static let edgePadding: CGFloat = 2
 
     var body: some View {
         GeometryReader { proxy in
-            ZStack {
-                Text(label)
-                    .font(Theme.scoreFont(size: scoreFontSize))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                    .contentTransition(.numericText())
-                    .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
-
-                // Team name and "Spiel"/"Satz" banner sit on the edge facing the centre strip,
-                // away from the clock at the top of the screen.
-                VStack {
-                    if labelEdge == .bottom { Spacer() }
-                    HStack(alignment: .center) {
-                        Text(Theme.title(for: team).uppercased())
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.7))
-                        Spacer()
-                        if let banner {
-                            Text(banner.uppercased())
-                                .font(.system(size: 11, weight: .heavy, design: .rounded))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(.white.opacity(0.22), in: .capsule)
-                                .transition(.scale(scale: 0.6).combined(with: .opacity))
-                        }
-                    }
-                    if labelEdge == .top { Spacer() }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-            }
+            // The number sits on the edge facing the centre strip: bottom of the red field,
+            // top of the green field – close to the sets/games and away from the clock.
+            Text(label)
+                .font(Theme.scoreFont(size: scoreFontSize))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .contentTransition(.numericText())
+                .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                .padding(team == .opponent ? .bottom : .top, ScoreField.edgePadding)
+                .frame(maxWidth: .infinity, maxHeight: .infinity,
+                       alignment: team == .opponent ? .bottom : .top)
             .frame(width: proxy.size.width, height: proxy.size.height)
             .glassEffect(.regular.tint(tint.opacity(isHighlighted ? 0.75 : 0.5)).interactive(), in: shape)
             .background {
@@ -85,7 +63,7 @@ struct ScoreField: View {
                 action()
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.7), value: label)
-            .animation(.spring(response: 0.4, dampingFraction: 0.6), value: banner)
+            .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isHighlighted)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(Theme.title(for: team)): \(label)")

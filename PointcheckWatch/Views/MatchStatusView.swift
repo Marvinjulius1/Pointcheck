@@ -23,25 +23,38 @@ struct MatchStatusView: View {
                 .font(Theme.scoreFont(size: 20))
                 .contentTransition(.numericText())
 
-                HStack(spacing: 4) {
-                    Text("\(state.games.me):\(state.games.opponent)")
-                        .foregroundStyle(.secondary)
-                        .contentTransition(.numericText())
-                    if let situation = situationText {
-                        Text(situation)
-                            .foregroundStyle(.yellow)
-                            .transition(.opacity)
-                    }
+                if let highlight, let team = highlight.team {
+                    // "SPIEL" / "SATZ" / "MATCH" in the winning team's colour, briefly
+                    // replacing the games line.
+                    Text(highlight.title.uppercased())
+                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Theme.color(for: team))
+                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+                } else {
+                    gamesLine
                 }
-                .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
             }
         }
         .lineLimit(1)
         .minimumScaleFactor(0.7)
         .animation(.smooth, value: state)
-        .animation(.smooth, value: highlight)
+        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: highlight)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Sätze \(state.setsWon.me) zu \(state.setsWon.opponent), Spiele \(state.games.me) zu \(state.games.opponent)")
+    }
+
+    private var gamesLine: some View {
+        HStack(spacing: 4) {
+            Text("\(state.games.me):\(state.games.opponent)")
+                .foregroundStyle(.secondary)
+                .contentTransition(.numericText())
+            if let situation = situationText {
+                Text(situation)
+                    .foregroundStyle(.yellow)
+                    .transition(.opacity)
+            }
+        }
+        .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
     }
 
     private var situationText: String? {
