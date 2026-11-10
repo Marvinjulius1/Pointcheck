@@ -44,6 +44,12 @@ Matches mit Bestätigung durch den Gegner und die Spielstärke-Berechnung auf de
    <p>Der Code ist eine Stunde gültig.</p>
    ```
 
+7. Unter **Authentication → URL Configuration**:
+   - **Site URL** auf `pointcheck://login` setzen,
+   - bei **Redirect URLs** `pointcheck://login` hinzufügen.
+
+   Dann öffnet auch ein Link in der E-Mail direkt die App (statt einer nicht erreichbaren Seite).
+
    Hinweis: Der eingebaute E-Mail-Versand von Supabase schickt nur wenige Mails pro Stunde – zum Testen reicht das.
    Für echte Nutzer später einen eigenen E-Mail-Dienst (SMTP) unter **Authentication → Emails → SMTP** eintragen.
 

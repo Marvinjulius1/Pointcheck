@@ -121,6 +121,11 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        # pointcheck://login – the sign-in link in the e-mail opens the app.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.marvinjulius.pointcheck
+            CFBundleURLSchemes:
+              - pointcheck
         NSHealthShareUsageDescription: Pointcheck zeigt Herzfrequenz und Kalorien deiner Padel-Matches, die deine Apple Watch aufgezeichnet hat.
     entitlements:
       path: PointcheckPhone/Pointcheck.entitlements

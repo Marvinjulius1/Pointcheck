@@ -30,6 +30,10 @@ final class AccountService {
 
     var userID: UUID? { client.auth.currentUser?.id }
 
+    /// Where the sign-in link in the e-mail leads: opens this app (URL scheme in Info.plist).
+    /// Must also be listed in Supabase under Authentication → URL Configuration → Redirect URLs.
+    static let loginRedirect = URL(string: "pointcheck://login")!
+
     func start() {
         guard authTask == nil else { return }
         authTask = Task { [weak self] in
@@ -62,6 +66,7 @@ final class AccountService {
         let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         try await client.auth.signInWithOTP(
             email: address,
+            redirectTo: Self.loginRedirect,
             data: name.isEmpty ? nil : ["display_name": .string(name)]
         )
         state = .awaitingCode(email: address)
@@ -73,6 +78,18 @@ final class AccountService {
         try await client.auth.verifyOTP(email: email, token: token, type: .email)
         state = .signedIn
         await refresh()
+    }
+
+    /// The sign-in link from the e-mail was tapped and opened the app.
+    func handleOpenURL(_ url: URL) async {
+        guard url.scheme == Self.loginRedirect.scheme else { return }
+        do {
+            _ = try await client.auth.session(from: url)
+            state = .signedIn
+            await refresh()
+        } catch {
+            print("Sign-in link failed: \(error)")
+        }
     }
 
     func cancelCode() {

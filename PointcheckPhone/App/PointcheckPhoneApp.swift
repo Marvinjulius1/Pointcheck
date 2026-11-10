@@ -33,6 +33,9 @@ struct PointcheckPhoneApp: App {
                 .environment(sync)
                 .environment(health)
                 .environment(account)
+                .onOpenURL { url in
+                    Task { await account.handleOpenURL(url) }
+                }
                 .tint(Theme.me)
         }
         .modelContainer(PhoneEnvironment.container)

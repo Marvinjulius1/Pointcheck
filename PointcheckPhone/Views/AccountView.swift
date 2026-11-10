@@ -105,7 +105,7 @@ private struct CodeEntryView: View {
             } header: {
                 Text("Code eingeben")
             } footer: {
-                Text("Wir haben einen Code an \(email) geschickt. Schau auch im Spam-Ordner nach.")
+                Text("Wir haben dir eine E-Mail an \(email) geschickt. Gib den Code hier ein oder tippe in der E-Mail auf den Link – beides funktioniert. Schau auch im Spam-Ordner nach.")
             }
 
             if let errorText {
