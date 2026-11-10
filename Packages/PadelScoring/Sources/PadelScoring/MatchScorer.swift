@@ -30,8 +30,15 @@ public struct MatchScorer: Codable, Hashable, Sendable {
         return true
     }
 
+    /// Chooses who serves first. Only possible before the first point; not an undo step.
+    @discardableResult
+    public mutating func setFirstServer(_ team: Team) -> Bool {
+        state.setFirstServer(team)
+    }
+
     /// Starts a fresh match with the given rules.
-    public mutating func reset(rules: MatchRules) {
+    public mutating func reset(rules: MatchRules, firstServer: Team = .me) {
         self = MatchScorer(rules: rules)
+        state.setFirstServer(firstServer)
     }
 }
