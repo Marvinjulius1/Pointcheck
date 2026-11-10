@@ -64,19 +64,33 @@ struct RatingView: View {
     @Query private var stored: [StoredMatch]
     @Environment(AccountService.self) private var account
 
+    /// Confirmed server values once there are rated matches, else the local preview.
+    private var headline: (rating: Double, matches: Int, isProvisional: Bool, isServer: Bool) {
+        if let profile = account.profile, profile.ratedMatches > 0 {
+            return (profile.rating, profile.ratedMatches, profile.ratedMatches < 10, true)
+        }
+        let me = PadelStats.localRatings(account.allMatches(local: stored.map(\.summary))).me
+        return (me.rating, me.matches, me.isProvisional, false)
+    }
+
     var body: some View {
         let report = PadelStats.localRatings(account.allMatches(local: stored.map(\.summary)))
+        let head = headline
+        let level = PadelLevel.level(for: head.rating)
         List {
             Section {
                 VStack(spacing: 8) {
-                    LevelBadge(level: report.me.level, size: 96)
-                    Text(PadelLevel.name(for: report.me.level))
+                    LevelBadge(level: level, size: 96)
+                    Text(PadelLevel.name(for: level))
                         .font(.title2.weight(.bold))
-                    Text("\(Int(report.me.rating.rounded())) Punkte · \(report.me.matches) gewertete Matches")
+                    Text("\(Int(head.rating.rounded())) Punkte · \(head.matches) gewertete Matches")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
-                    if report.me.isProvisional {
+                    Text(head.isServer ? "Aus bestätigten Matches" : "Vorschau aus deinen eigenen Matches")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if head.isProvisional {
                         Label("Vorläufig – wird nach 10 Matches stabiler", systemImage: "hourglass")
                             .font(.footnote)
                             .foregroundStyle(.orange)

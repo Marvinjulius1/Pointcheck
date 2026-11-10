@@ -11,15 +11,23 @@ struct BadgesView: View {
         let unlocked = badges.filter(\.isUnlocked).count
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("\(unlocked) von \(badges.count) freigeschaltet")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("\(unlocked) von \(badges.count)")
+                        .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
+                    ProgressView(value: Double(unlocked), total: Double(max(badges.count, 1)))
+                        .tint(Theme.me)
+                    Text("Erfolge freigeschaltet")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 8)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
                     ForEach(badges) { BadgeTile(badge: $0) }
                 }
             }
             .padding()
         }
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("Erfolge")
     }
 }
@@ -31,9 +39,9 @@ private struct BadgeTile: View {
         VStack(spacing: 10) {
             Image(systemName: badge.symbol)
                 .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(badge.isUnlocked ? Theme.ball : .secondary)
+                .foregroundStyle(badge.isUnlocked ? AnyShapeStyle(Color.white) : AnyShapeStyle(HierarchicalShapeStyle.secondary))
                 .frame(width: 64, height: 64)
-                .glassEffect(.regular.tint(badge.isUnlocked ? Theme.me.opacity(0.45) : .clear), in: .circle)
+                .background(badge.isUnlocked ? AnyShapeStyle(Theme.me.gradient) : AnyShapeStyle(Color(.tertiarySystemFill)), in: .circle)
                 .symbolEffect(.bounce, value: badge.isUnlocked)
             Text(badge.title)
                 .font(.headline)
@@ -52,8 +60,7 @@ private struct BadgeTile: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .glassEffect(.regular, in: .rect(cornerRadius: 22))
-        .opacity(badge.isUnlocked ? 1 : 0.75)
+        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 22, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }
