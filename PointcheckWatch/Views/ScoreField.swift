@@ -10,9 +10,8 @@ struct ScoreField: View {
     let isEnabled: Bool
     /// Shared by both fields so the red and green numbers are always the same size.
     let scoreFontSize: CGFloat
-    /// Space covered by the system clock (top field) or the bottom buttons (bottom field).
+    /// Space at the top covered by the system clock (top field only).
     var contentTopInset: CGFloat = 0
-    var contentBottomInset: CGFloat = 0
     let action: () -> Void
 
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
@@ -38,7 +37,7 @@ struct ScoreField: View {
                     .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
 
                 // Team name and "Spiel"/"Satz" banner sit on the edge facing the centre strip,
-                // away from the clock at the top and the buttons at the bottom of the screen.
+                // away from the clock at the top of the screen.
                 VStack {
                     if labelEdge == .bottom { Spacer() }
                     HStack(alignment: .center) {
@@ -62,7 +61,6 @@ struct ScoreField: View {
                 .padding(.vertical, 8)
             }
             .padding(.top, contentTopInset)
-            .padding(.bottom, contentBottomInset)
             .frame(width: proxy.size.width, height: proxy.size.height)
             .glassEffect(.regular.tint(tint.opacity(isHighlighted ? 0.75 : 0.5)).interactive(), in: shape)
             .background {

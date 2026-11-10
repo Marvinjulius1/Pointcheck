@@ -15,10 +15,8 @@ struct ScoreboardView: View {
     /// Crown detents needed (backwards) for one undo – protects against accidental touches.
     private let crownUndoThreshold = 2.0
     private let statusHeight: CGFloat = 38
-    /// Diameter of the two round glass buttons at the bottom.
+    /// Diameter of the two round glass buttons beside the score in the centre strip.
     private let controlSize: CGFloat = 32
-    private let controlBottomPadding: CGFloat = 6
-    private var controlsInset: CGFloat { controlSize + controlBottomPadding + 4 }
 
     private var state: MatchState { controller.state }
 
@@ -30,20 +28,17 @@ struct ScoreboardView: View {
             let topInset = outer.safeAreaInsets.top
             GeometryReader { proxy in
                 let fieldHeight = max(0, (proxy.size.height - statusHeight) / 2)
-                // Same score size in both fields: based on the smaller visible area.
-                let visibleHeight = fieldHeight - max(topInset, controlsInset)
+                // Same score size in both fields: based on the smaller visible area
+                // (the red field loses the clock area at the top).
+                let visibleHeight = fieldHeight - topInset
                 let scoreSize = min(max(visibleHeight, 0) * 0.62, 64)
                 VStack(spacing: 0) {
-                    field(for: .opponent, scoreSize: scoreSize, topInset: topInset, bottomInset: 0)
+                    field(for: .opponent, scoreSize: scoreSize, topInset: topInset)
                         .frame(height: fieldHeight)
-                    MatchStatusView(state: state, highlight: controller.highlight)
+                    centerStrip
                         .frame(height: statusHeight)
-                    field(for: .me, scoreSize: scoreSize, topInset: 0, bottomInset: controlsInset)
+                    field(for: .me, scoreSize: scoreSize, topInset: 0)
                         .frame(height: fieldHeight)
-                }
-                .overlay(alignment: .bottom) {
-                    bottomControls
-                        .padding(.bottom, controlBottomPadding)
                 }
             }
             .padding(.horizontal, 2)
@@ -77,6 +72,17 @@ struct ScoreboardView: View {
         .onChange(of: crownValue) { _, newValue in
             handleCrown(newValue)
         }
+        .toolbar {
+            // watchOS only centres the system clock when a top-bar trailing item exists
+            // (Apple Developer Forums, thread 775912). The buttons live in the centre strip,
+            // so an invisible, non-interactive placeholder keeps the clock in the middle.
+            ToolbarItem(placement: .topBarTrailing) {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
         .confirmationDialog("Neues Match starten?", isPresented: $showsNewMatchDialog, titleVisibility: .visible) {
             Button("Neues Match") {
                 controller.startNewMatch()
@@ -90,9 +96,9 @@ struct ScoreboardView: View {
         }
     }
 
-    /// Menu (history/settings) and "new match", centred at the bottom edge.
-    private var bottomControls: some View {
-        HStack(spacing: 14) {
+    /// Menu button at the left edge, sets/games in the middle, "new match" at the right edge.
+    private var centerStrip: some View {
+        HStack(spacing: 4) {
             NavigationLink {
                 MenuView()
             } label: {
@@ -100,6 +106,9 @@ struct ScoreboardView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Verlauf und Einstellungen")
+
+            MatchStatusView(state: state, highlight: controller.highlight)
+                .frame(maxWidth: .infinity)
 
             Button {
                 showsNewMatchDialog = true
@@ -122,15 +131,14 @@ struct ScoreboardView: View {
             .contentShape(.circle)
     }
 
-    private func field(for team: Team, scoreSize: CGFloat, topInset: CGFloat, bottomInset: CGFloat) -> some View {
+    private func field(for team: Team, scoreSize: CGFloat, topInset: CGFloat) -> some View {
         ScoreField(
             team: team,
             label: state.pointLabel(for: team),
             banner: banner(for: team),
             isEnabled: !state.isFinished,
             scoreFontSize: scoreSize,
-            contentTopInset: topInset,
-            contentBottomInset: bottomInset
+            contentTopInset: topInset
         ) {
             controller.score(team)
         }
