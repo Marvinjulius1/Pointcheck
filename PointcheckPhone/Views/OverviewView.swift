@@ -18,6 +18,7 @@ struct OverviewView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
+                        RatingCard(report: PadelStats.localRatings(matches))
                         tiles(overview)
                         healthSection
                         weeklyChart
