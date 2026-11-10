@@ -31,7 +31,7 @@ struct ScoreboardView: View {
                 // Same score size in both fields: based on the smaller visible area
                 // (the red field loses the clock area at the top).
                 let visibleHeight = fieldHeight - topInset
-                let scoreSize = min(max(visibleHeight, 0) * 0.62, 64)
+                let scoreSize = min(max(visibleHeight, 0) * 0.78, 80)
                 VStack(spacing: 0) {
                     field(for: .opponent, scoreSize: scoreSize, topInset: topInset)
                         .frame(height: fieldHeight)
