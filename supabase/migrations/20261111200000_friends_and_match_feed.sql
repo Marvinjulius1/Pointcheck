@@ -6,7 +6,7 @@
 -- ---------------------------------------------------------------------------
 
 -- My friends and open requests. Rating only for accepted friends.
-create function public.my_friends()
+create or replace function public.my_friends()
 returns table (
     profile_id uuid,
     display_name text,
@@ -31,7 +31,7 @@ as $$
 $$;
 
 -- Sends a request – or accepts directly if the other person already asked me.
-create function public.request_friend(p_profile uuid)
+create or replace function public.request_friend(p_profile uuid)
 returns public.friendship_status
 language plpgsql security definer set search_path = ''
 as $$
@@ -61,7 +61,7 @@ begin
 end;
 $$;
 
-create function public.accept_friend(p_profile uuid)
+create or replace function public.accept_friend(p_profile uuid)
 returns void
 language sql security definer set search_path = ''
 as $$
@@ -70,7 +70,7 @@ as $$
 $$;
 
 -- Declines a request, withdraws my own request, or ends a friendship.
-create function public.remove_friend(p_profile uuid)
+create or replace function public.remove_friend(p_profile uuid)
 returns void
 language sql security definer set search_path = ''
 as $$
@@ -85,7 +85,7 @@ $$;
 
 -- Every match I take part in. Co-players' names are shown to participants even if
 -- their profile is friends-only (they played together). Sets are stored from side A.
-create function public.my_match_feed()
+create or replace function public.my_match_feed()
 returns table (
     match_id uuid,
     started_at timestamptz,
