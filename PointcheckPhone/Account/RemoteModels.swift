@@ -193,6 +193,20 @@ struct FeedItem: Decodable, Identifiable, Equatable {
         case opponentNames = "opponent_names"
     }
 
+    init(kind: Kind, id: UUID, createdAt: Date, authorID: UUID, authorName: String, authorUsername: String?,
+         authorAvatar: String?, text: String?, imagePath: String?, match: AttachedMatch?) {
+        self.kind = kind
+        self.id = id
+        self.createdAt = createdAt
+        self.authorID = authorID
+        self.authorName = authorName
+        self.authorUsername = authorUsername
+        self.authorAvatar = authorAvatar
+        self.text = text
+        self.imagePath = imagePath
+        self.match = match
+    }
+
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         kind = try c.decode(Kind.self, forKey: .kind)
@@ -234,6 +248,14 @@ struct ProfilePost: Decodable, Identifiable, Equatable {
         case authorSide = "author_side"
         case partnerName = "partner_name"
         case opponentNames = "opponent_names"
+    }
+
+    init(id: UUID, createdAt: Date, text: String, imagePath: String?, match: AttachedMatch?) {
+        self.id = id
+        self.createdAt = createdAt
+        self.text = text
+        self.imagePath = imagePath
+        self.match = match
     }
 
     init(from decoder: Decoder) throws {

@@ -100,7 +100,7 @@ struct MatchesView: View {
         .fullScreenCover(isPresented: $showsCounter) { LiveCounterView() }
         .sheet(isPresented: $showsManualEntry) { ManualResultView() }
         .profileNavigation()
-        .refreshable {
+        .tennisBallRefresh {
             sync.requestAll()
             await account.refresh()
         }

@@ -25,6 +25,10 @@ final class AccountService {
     private(set) var recentFollowers: [PersonRow] = []
     private(set) var feed: [FeedItem] = []
     private(set) var feedHasMore = false
+    private(set) var isLoadingFeed = false
+    /// Rating change since the person last saw their rating (shown once as a floating label).
+    private(set) var pendingRatingDelta: Double = 0
+    private static let lastSeenRatingKey = "rating.lastSeen"
     private(set) var suggestions: [PersonRow] = []
     /// Players opened from the search, newest first (kept on this device).
     private(set) var recentSearches: [PersonRow] = AccountService.loadRecentSearches()
@@ -229,6 +233,12 @@ final class AccountService {
             try await self.client.from("profiles").select().eq("id", value: userID).single().execute().value
         }) {
             profile = loaded
+            let key = "\(Self.lastSeenRatingKey).\(userID.uuidString)"
+            if let seen = UserDefaults.standard.object(forKey: key) as? Double {
+                pendingRatingDelta = loaded.rating - seen
+            } else {
+                UserDefaults.standard.set(loaded.rating, forKey: key)
+            }
         }
 
         if let loaded: [OpenConfirmation] = await load("open confirmations", {
@@ -555,6 +565,13 @@ final class AccountService {
 
     // MARK: - Feed & posts
 
+    /// The floating "+24" was shown – remember the current rating as seen.
+    func acknowledgeRatingDelta() {
+        guard let userID, let profile else { return }
+        UserDefaults.standard.set(profile.rating, forKey: "\(Self.lastSeenRatingKey).\(userID.uuidString)")
+        pendingRatingDelta = 0
+    }
+
     private static let feedPageSize = 20
 
     private struct FeedParams: Encodable {
@@ -563,6 +580,8 @@ final class AccountService {
     }
 
     func loadFeed() async {
+        isLoadingFeed = true
+        defer { isLoadingFeed = false }
         if let page: [FeedItem] = await load("feed", {
             try await self.client.rpc("home_feed", params: FeedParams(p_limit: Self.feedPageSize, p_before: nil)).execute().value
         }) {

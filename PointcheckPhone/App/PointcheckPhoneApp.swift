@@ -15,6 +15,7 @@ enum PhoneEnvironment {
     static let health = HealthService()
     static let account = AccountService()
     static let counter = PhoneMatchController(store: MatchStore(context: container.mainContext))
+    static let badges = BadgeTracker()
 }
 
 @main
@@ -23,6 +24,7 @@ struct PointcheckPhoneApp: App {
     @State private var health = PhoneEnvironment.health
     @State private var account = PhoneEnvironment.account
     @State private var counter = PhoneEnvironment.counter
+    @State private var badges = PhoneEnvironment.badges
 
     init() {
         PhoneEnvironment.sync.activate()
@@ -36,6 +38,7 @@ struct PointcheckPhoneApp: App {
                 .environment(health)
                 .environment(account)
                 .environment(counter)
+                .environment(badges)
                 .onOpenURL { url in
                     Task { await account.handleOpenURL(url) }
                 }

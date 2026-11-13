@@ -11,6 +11,7 @@ struct HomeView: View {
     @Environment(AccountService.self) private var account
     @State private var showsComposer = false
     @State private var following: [PersonRow] = []
+    @Environment(\.zoomNamespace) private var zoomNamespace
 
     private var matches: [MatchSummary] { account.allMatches(local: stored.map(\.summary)) }
 
@@ -48,7 +49,7 @@ struct HomeView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable {
+        .tennisBallRefresh {
             sync.requestAll()
             await account.refresh()
             await loadFollowing()
@@ -79,18 +80,27 @@ struct HomeView: View {
                 ForEach(following) { person in
                     NavigationLink(value: person.profileID) {
                         AvatarBubble(name: person.displayName, url: account.imageURL(person.avatarPath, bucket: .avatars))
+                            .zoomSource(person.profileID, in: zoomNamespace)
                     }
                     .buttonStyle(.pressScale)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
-                ForEach(account.suggestions.prefix(8)) { person in
+                ForEach(Array(account.suggestions.prefix(8).enumerated()), id: \.element.id) { index, person in
                     NavigationLink(value: person.profileID) {
                         AvatarBubble(name: person.displayName, url: account.imageURL(person.avatarPath, bucket: .avatars))
+                            .zoomSource(person.profileID, in: zoomNamespace)
                             .overlay(alignment: .topTrailing) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundStyle(Theme.onAccent, Theme.accent)
+                                PulsingPlus(delay: Double(index) * 0.1)
                                     .offset(x: -4, y: 2)
                             }
+                    }
+                    .buttonStyle(.pressScale)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+                if following.isEmpty {
+                    NavigationLink(value: DemoProfile.id) {
+                        AvatarBubble(name: DemoProfile.name, caption: "Demo")
+                            .zoomSource(DemoProfile.id, in: zoomNamespace)
                     }
                     .buttonStyle(.pressScale)
                 }
@@ -109,6 +119,8 @@ struct HomeView: View {
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 18)
+            .animation(.spring(response: 0.5, dampingFraction: 0.8), value: account.suggestions)
+            .animation(.spring(response: 0.5, dampingFraction: 0.8), value: following)
         }
     }
 
@@ -116,11 +128,19 @@ struct HomeView: View {
 
     @ViewBuilder
     private var feed: some View {
-        if account.feed.isEmpty {
+        if account.feed.isEmpty, account.isLoadingFeed {
+            ForEach(0..<3, id: \.self) { _ in
+                SkeletonRow(showsImage: true)
+                FeedDivider()
+            }
+        } else if account.feed.isEmpty {
             EmptyState(symbol: "sparkles", title: "Noch nichts im Feed",
                        message: "Folge Spielern oben in der Reihe – oder teile dein erstes Match.",
                        actionTitle: "Beitrag schreiben", action: { showsComposer = true })
-                .padding(.top, 24)
+                .padding(.top, 8)
+            SectionTitle("So sieht ein Beitrag aus").padding(.horizontal, 16)
+            FeedEntry(item: DemoProfile.feedItem)
+            FeedDivider()
         } else {
             ForEach(Array(account.feed.enumerated()), id: \.element.id) { index, item in
                 FeedEntry(item: item)
@@ -175,6 +195,12 @@ private struct RatingStrip: View {
                         .foregroundStyle(.secondary)
                     CountUpText(value: data.current)
                         .font(.system(size: 40, weight: .semibold, design: .rounded).monospacedDigit())
+                        .overlay(alignment: .trailing) {
+                            if account.pendingRatingDelta != 0 {
+                                FloatingDelta(delta: account.pendingRatingDelta) { account.acknowledgeRatingDelta() }
+                                    .offset(x: 56)
+                            }
+                        }
                     ChangeLabel(change: change.delta, base: change.base, suffix: "30 Tage")
                 }
                 Spacer()
@@ -217,6 +243,7 @@ private struct FeedEntry: View {
     @State private var confirmDelete = false
 
     private var isMine: Bool { item.authorID == account.userID }
+    @Environment(\.zoomNamespace) private var zoomNamespace
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -224,6 +251,7 @@ private struct FeedEntry: View {
                 NavigationLink(value: item.authorID) {
                     HStack(spacing: 12) {
                         ProfilePhoto(name: item.authorName, url: account.imageURL(item.authorAvatar, bucket: .avatars), size: 40)
+                            .zoomSource(item.authorID, in: zoomNamespace)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(item.authorName).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                             Text(subtitle).font(.caption).foregroundStyle(.secondary)
@@ -284,6 +312,7 @@ private struct FeedEntry: View {
 /// Result as a wide, tinted banner – the "image" of a match post.
 struct ResultBanner: View {
     let match: AttachedMatch
+    @State private var popped = false
 
     private var tint: Color { match.authorWon ? Theme.me : Theme.opponent }
 
@@ -308,12 +337,62 @@ struct ResultBanner: View {
             Text("\(match.setsWon.me):\(match.setsWon.opponent)")
                 .font(Theme.scoreFont(size: 40))
                 .foregroundStyle(tint)
+                .scaleEffect(popped ? 1 : 0.6)
+                .opacity(popped ? 1 : 0)
         }
         .padding(18)
+        .onAppear {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.55).delay(0.1)) { popped = true }
+        }
         .background(
             LinearGradient(colors: [tint.opacity(0.18), tint.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing),
             in: .rect(cornerRadius: 20, style: .continuous)
         )
         .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Small motion pieces
+
+/// "+24" that rises and fades (green), or sinks (red) for a loss of points.
+struct FloatingDelta: View {
+    let delta: Double
+    let onDone: () -> Void
+    @State private var shown = false
+
+    private var isUp: Bool { delta > 0 }
+
+    var body: some View {
+        Text((isUp ? "+" : "−") + Int(abs(delta).rounded()).formatted())
+            .font(.system(size: 15, weight: .bold, design: .rounded).monospacedDigit())
+            .foregroundStyle(isUp ? Theme.me : Theme.opponent)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background((isUp ? Theme.me : Theme.opponent).opacity(0.14), in: .capsule)
+            .offset(y: shown ? (isUp ? -34 : 34) : 0)
+            .opacity(shown ? 0 : 1)
+            .task {
+                try? await Task.sleep(for: .seconds(0.6))
+                withAnimation(.easeOut(duration: 1.6)) { shown = true }
+                try? await Task.sleep(for: .seconds(1.7))
+                onDone()
+            }
+            .accessibilityLabel("Spielstärke \(isUp ? "plus" : "minus") \(Int(abs(delta).rounded()))")
+    }
+}
+
+/// Green plus badge that pulses once when it appears.
+struct PulsingPlus: View {
+    var delay: Double = 0
+    @State private var pulsed = false
+
+    var body: some View {
+        Image(systemName: "plus.circle.fill")
+            .font(.system(size: 18))
+            .foregroundStyle(.white, Theme.me)
+            .scaleEffect(pulsed ? 1 : 0.6)
+            .onAppear {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.5).delay(delay)) { pulsed = true }
+            }
+            .accessibilityHidden(true)
     }
 }

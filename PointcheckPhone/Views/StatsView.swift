@@ -63,7 +63,8 @@ struct StatsView: View {
                     title: "Aktuelle Serie",
                     subtitle: "Rekord: \(overview.longestWinStreak) Siege in Folge",
                     value: streakText(overview.currentStreak),
-                    valueTint: overview.currentStreak > 0 ? Theme.me : overview.currentStreak < 0 ? Theme.opponent : .primary
+                    valueTint: overview.currentStreak > 0 ? Theme.me : overview.currentStreak < 0 ? Theme.opponent : .primary,
+                    fire: overview.currentStreak >= 5 ? 2 : overview.currentStreak >= 3 ? 1 : 0
                 )
                 RowDivider()
                 MetricRow(
@@ -325,7 +326,7 @@ struct RatingHero: View {
             .chartXSelection(value: $selectedDate)
             .frame(height: 190)
             .drawOnAppear()
-            .sensoryFeedback(.selection, trigger: selected?.date)
+            .sensoryFeedback(.impact(weight: .light, intensity: 0.5), trigger: selected?.date)
             .animation(.smooth, value: range)
 
             RangePicker(values: RatingRange.allCases, selection: $range, title: \.rawValue, tint: lineColor)

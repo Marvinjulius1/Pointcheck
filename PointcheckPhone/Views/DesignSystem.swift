@@ -51,10 +51,11 @@ struct MetricRow: View {
     var subtitle: String?
     let value: String
     var valueTint: Color = .primary
+    var fire: Int = 0
 
     var body: some View {
         HStack(spacing: 14) {
-            IconTile(symbol: symbol, tint: tint)
+            IconTile(symbol: symbol, tint: tint, fire: fire)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 if let subtitle {
@@ -80,6 +81,8 @@ struct IconTile: View {
     let symbol: String
     var tint: Color = .accentColor
     var size: CGFloat = 32
+    /// 0 = still, 1 = subtle flicker, 2 = flicker with glow (win streaks).
+    var fire: Int = 0
 
     var body: some View {
         Image(systemName: symbol)
@@ -87,6 +90,26 @@ struct IconTile: View {
             .foregroundStyle(Theme.onAccent)
             .frame(width: size, height: size)
             .background(tint, in: .rect(cornerRadius: size * 0.28, style: .continuous))
+            .modifier(Flicker(level: fire, tint: tint))
+    }
+}
+
+/// Subtle flicker (and glow) for the streak flame.
+private struct Flicker: ViewModifier {
+    let level: Int
+    let tint: Color
+
+    func body(content: Content) -> some View {
+        if level == 0 {
+            content
+        } else {
+            PhaseAnimator([0, 1, 2]) { phase in
+                content
+                    .scaleEffect(phase == 1 ? 1.06 : phase == 2 ? 0.97 : 1)
+                    .opacity(phase == 2 ? 0.88 : 1)
+                    .shadow(color: level >= 2 ? tint.opacity(phase == 1 ? 0.7 : 0.35) : .clear, radius: phase == 1 ? 12 : 6)
+            } animation: { _ in .easeInOut(duration: 0.5) }
+        }
     }
 }
 
@@ -188,10 +211,27 @@ extension View {
     /// Registers the profile-related destinations. Apply once at the root of each tab's
     /// NavigationStack (nested registrations would be ignored with a warning).
     func profileNavigation() -> some View {
-        self
-            .navigationDestination(for: UUID.self) { ProfileView(profileID: $0) }
-            .navigationDestination(for: PeopleListRoute.self) { PeopleListView(route: $0) }
+        modifier(ProfileNavigation())
     }
+}
+
+/// Registers the profile destinations once per tab and provides the zoom namespace.
+private struct ProfileNavigation: ViewModifier {
+    @Namespace private var zoom
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.zoomNamespace, zoom)
+            .navigationDestination(for: UUID.self) { id in
+                ProfileView(profileID: id)
+                    .zoomDestination(id, in: zoom)
+                    .environment(\.zoomNamespace, zoom)
+            }
+            .navigationDestination(for: PeopleListRoute.self) { PeopleListView(route: $0).environment(\.zoomNamespace, zoom) }
+    }
+}
+
+extension View {
 }
 
 // MARK: - Social building blocks
@@ -238,10 +278,14 @@ struct FollowButton: View {
                 if isWorking {
                     ProgressView().controlSize(.mini)
                 } else if relation == .following {
-                    Image(systemName: "checkmark").font(.caption.weight(.bold))
+                    Image(systemName: "checkmark")
+                        .font(.caption.weight(.bold))
+                        .transition(.scale.combined(with: .opacity))
+                        .symbolEffect(.bounce, value: relation)
                 }
                 Text(relation.buttonTitle)
                     .font(.subheadline.weight(.semibold))
+                    .contentTransition(.numericText())
             }
             .frame(minWidth: compact ? 0 : 110)
             .padding(.horizontal, compact ? 12 : 16)
@@ -250,10 +294,10 @@ struct FollowButton: View {
             .foregroundStyle(relation == .none ? Theme.onAccent : Color.primary)
             .contentShape(.capsule)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressScale)
         .disabled(isWorking || relation == .self)
-        .animation(.snappy, value: relation)
-        .sensoryFeedback(.success, trigger: relation == .following)
+        .animation(.spring(response: 0.35, dampingFraction: 0.65), value: relation)
+        .sensoryFeedback(.impact(weight: .light), trigger: relation)
     }
 
     private var background: AnyShapeStyle {
@@ -285,6 +329,7 @@ struct PersonListRow: View {
     var subtitle: String?
     var showsFollowButton = true
     @Environment(AccountService.self) private var account
+    @Environment(\.zoomNamespace) private var zoomNamespace
     @State private var relation: FollowRelation
 
     init(person: PersonRow, subtitle: String? = nil, showsFollowButton: Bool = true) {
@@ -299,6 +344,7 @@ struct PersonListRow: View {
             NavigationLink(value: person.profileID) {
                 HStack(spacing: 12) {
                     ProfilePhoto(name: person.displayName, url: account.imageURL(person.avatarPath, bucket: .avatars))
+                        .zoomSource(person.profileID, in: zoomNamespace)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(person.displayName)
                             .font(.body.weight(.semibold))
@@ -335,11 +381,8 @@ struct EmptyState: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 34, weight: .medium))
-                .foregroundStyle(Theme.accent)
-                .frame(width: 72, height: 72)
-                .background(Theme.surface, in: .circle)
+            BouncingBall()
+                .frame(height: 84)
             Text(title)
                 .font(.title3.weight(.bold))
             Text(message)
@@ -395,16 +438,186 @@ extension Date {
 /// Counts a number up on appear and whenever it changes.
 struct CountUpText: View {
     let value: Double
+    var delay: Double = 0
     var format: (Double) -> String = { Int($0.rounded()).formatted() }
     @State private var shown: Double = 0
 
     var body: some View {
         Text(format(shown))
             .contentTransition(.numericText(value: shown))
-            .onAppear { withAnimation(.spring(response: 0.9, dampingFraction: 0.9)) { shown = value } }
+            .onAppear { withAnimation(.spring(response: 0.9, dampingFraction: 0.9).delay(delay)) { shown = value } }
             .onChange(of: value) { _, new in withAnimation(.snappy) { shown = new } }
     }
 }
+
+// MARK: - Zoom transitions
+
+/// Namespace for zoom transitions (avatar → profile, tile → detail), shared per tab.
+struct ZoomNamespaceKey: EnvironmentKey {
+    static let defaultValue: Namespace.ID? = nil
+}
+
+extension EnvironmentValues {
+    var zoomNamespace: Namespace.ID? {
+        get { self[ZoomNamespaceKey.self] }
+        set { self[ZoomNamespaceKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Marks this view as the source of a zoom transition for `id` (no-op without a namespace).
+    @ViewBuilder
+    func zoomSource(_ id: some Hashable, in namespace: Namespace.ID?) -> some View {
+        if let namespace {
+            self.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            self
+        }
+    }
+
+    /// Lets this destination grow out of its `zoomSource` (no-op without a namespace).
+    @ViewBuilder
+    func zoomDestination(_ id: some Hashable, in namespace: Namespace.ID?) -> some View {
+        if let namespace {
+            self.navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            self
+        }
+    }
+}
+
+// MARK: - Skeleton loading
+
+/// Grey placeholder with a moving shimmer.
+struct SkeletonBlock: View {
+    var height: CGFloat = 16
+    var width: CGFloat? = nil
+    var radius: CGFloat = 8
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .fill(Theme.surface)
+            .frame(width: width, height: height)
+            .overlay {
+                PhaseAnimator([false, true]) { phase in
+                    LinearGradient(colors: [.clear, Color.primary.opacity(0.07), .clear],
+                                   startPoint: .leading, endPoint: .trailing)
+                        .frame(width: 160)
+                        .offset(x: phase ? 320 : -320)
+                } animation: { _ in .linear(duration: 1.3) }
+            }
+            .clipShape(.rect(cornerRadius: radius, style: .continuous))
+            .accessibilityHidden(true)
+    }
+}
+
+/// Placeholder for a feed entry or a list row.
+struct SkeletonRow: View {
+    var showsImage = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                SkeletonBlock(height: 40, width: 40, radius: 20)
+                VStack(alignment: .leading, spacing: 6) {
+                    SkeletonBlock(height: 12, width: 140)
+                    SkeletonBlock(height: 10, width: 80)
+                }
+            }
+            if showsImage {
+                SkeletonBlock(height: 90, radius: 16)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+}
+
+// MARK: - Bouncing ball (empty states)
+
+/// A tennis ball that slowly bounces in place.
+struct BouncingBall: View {
+    var size: CGFloat = 44
+
+    var body: some View {
+        PhaseAnimator([0, 1]) { phase in
+            VStack(spacing: 6) {
+                Image(systemName: "tennisball.fill")
+                    .font(.system(size: size, weight: .semibold))
+                    .foregroundStyle(Theme.ball)
+                    .scaleEffect(x: phase == 1 ? 1.06 : 1, y: phase == 1 ? 0.94 : 1)
+                    .offset(y: phase == 1 ? 10 : -10)
+                Ellipse()
+                    .fill(Color.primary.opacity(phase == 1 ? 0.14 : 0.06))
+                    .frame(width: phase == 1 ? size * 1.0 : size * 0.7, height: 8)
+            }
+        } animation: { phase in
+            phase == 1 ? .easeIn(duration: 0.55) : .easeOut(duration: 0.55)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Pull to refresh with a tennis ball
+
+/// Replaces the system spinner: a ball spins while pulling and bounces when data arrived.
+struct TennisBallRefresh: ViewModifier {
+    let action: () async -> Void
+    @State private var pull: CGFloat = 0
+    @State private var isRefreshing = false
+    @State private var bounce = 0
+    private let threshold: CGFloat = 80
+
+    func body(content: Content) -> some View {
+        content
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                -(geometry.contentOffset.y + geometry.contentInsets.top)
+            } action: { _, offset in
+                if !isRefreshing { pull = max(0, offset) }
+            }
+            .onScrollPhaseChange { old, new in
+                guard old == .interacting, new != .interacting, pull > threshold, !isRefreshing else { return }
+                Task { await refresh() }
+            }
+            .overlay(alignment: .top) {
+                let progress = min(pull / threshold, 1)
+                Image(systemName: "tennisball.fill")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(Theme.ball)
+                    .rotationEffect(.degrees(Double(pull) * 3))
+                    .scaleEffect(isRefreshing ? 1 : 0.5 + progress * 0.5)
+                    .opacity(isRefreshing ? 1 : Double(progress))
+                    .keyframeAnimator(initialValue: 0.0, trigger: bounce) { view, y in
+                        view.offset(y: y)
+                    } keyframes: { _ in
+                        SpringKeyframe(-18, duration: 0.18)
+                        SpringKeyframe(0, duration: 0.3, spring: .bouncy)
+                    }
+                    .padding(.top, 6)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+            .safeAreaPadding(.top, isRefreshing ? 44 : 0)
+            .animation(.snappy, value: isRefreshing)
+            .sensoryFeedback(.impact(weight: .light), trigger: isRefreshing)
+    }
+
+    private func refresh() async {
+        isRefreshing = true
+        await action()
+        bounce += 1
+        try? await Task.sleep(for: .seconds(0.5))
+        isRefreshing = false
+        pull = 0
+    }
+}
+
+extension View {
+    func tennisBallRefresh(_ action: @escaping () async -> Void) -> some View {
+        modifier(TennisBallRefresh(action: action))
+    }
+}
+
 
 /// Fades and slides a view in on first appearance, optionally staggered.
 struct RevealOnAppear: ViewModifier {

@@ -57,6 +57,14 @@ Hallen und Clubs bekommen später eine Web-Ansicht.
 - ✅ Einheitliche Bausteine (Karten, Avatare, Folgen-Button, leere Zustände) statt Einstellungs-Listen
 - Offen: Push-Mitteilungen (Developer-Programm), Beiträge liken/kommentieren
 
+### Motion (13.11.)
+- ✅ Erfolg freigeschaltet: Karte von unten, einmal gedreht, grüner Punkt am Erfolge-Tab
+- ✅ Spielstärke-Sprung als „+24“/„−12“, das hochfliegt bzw. absinkt
+- ✅ Chart-Scrubbing mit Haptik, Pull-to-Refresh mit Tennisball, Tabwechsel mit sanftem Skalieren
+- ✅ Zoom-Übergänge: Avatar → Profil, Kachel → Ergebnis/Beitrag; Demo-Spieler zum Ausprobieren
+- ✅ Folgen-Haken, flackernde Serie, einfliegende Vorschläge, federnder Ball in leeren Zuständen,
+  gestaffeltes Hochzählen, aufpoppende Ergebnisse, Skeleton-Laden
+
 ### Ohne Apple Watch spielbar (13.11.)
 - ✅ **Live zählen auf dem iPhone**: gleiche Rot/Grün-Felder und Zähllogik wie auf der Watch, Rückgängig, Aufschlag, Seitenwechsel, Satzball/Matchball; laufendes Match überlebt App-Neustart
 - ✅ **Ergebnis nachträglich eintragen**: Sätze, Match-Tiebreak, Partner, Gegner, Datum

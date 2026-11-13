@@ -15,6 +15,8 @@ struct ProfileView: View {
     @State private var isLoading = true
     @State private var showsEditor = false
     @State private var showsComposer = false
+    @Environment(\.zoomNamespace) private var zoomNamespace
+    @Environment(BadgeTracker.self) private var badges
 
     enum ProfileTab: String, CaseIterable, Identifiable {
         case results = "Ergebnisse", posts = "Beiträge", badges = "Erfolge"
@@ -37,11 +39,17 @@ struct ProfileView: View {
                 ForEach(tabs) { value in
                     Button {
                         withAnimation(.snappy) { tab = value }
+                        if value == .badges { badges.markSeen() }
                     } label: {
                         VStack(spacing: 12) {
                             Image(systemName: value.symbol)
                                 .font(.system(size: 21, weight: .medium))
                                 .foregroundStyle(tab == value ? .primary : .secondary)
+                                .overlay(alignment: .topTrailing) {
+                                    if value == .badges, badges.hasUnseen {
+                                        Circle().fill(Theme.me).frame(width: 7, height: 7).offset(x: 4, y: -3)
+                                    }
+                                }
                             Rectangle()
                                 .fill(tab == value ? Color.primary : .clear)
                                 .frame(height: 1.5)
@@ -83,7 +91,26 @@ struct ProfileView: View {
                 }
                 .padding(.bottom, 32)
             } else if isLoading {
-                ProgressView().padding(.top, 80)
+                VStack(spacing: 20) {
+                    HStack(spacing: 24) {
+                        SkeletonBlock(height: 86, width: 86, radius: 43)
+                        HStack(spacing: 0) {
+                            ForEach(0..<3, id: \.self) { _ in
+                                VStack(spacing: 6) {
+                                    SkeletonBlock(height: 18, width: 36)
+                                    SkeletonBlock(height: 10, width: 48)
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+                    }
+                    SkeletonBlock(height: 14, width: 160).frame(maxWidth: .infinity, alignment: .leading)
+                    SkeletonBlock(height: 12, width: 240).frame(maxWidth: .infinity, alignment: .leading)
+                    SkeletonBlock(height: 40, radius: 20)
+                    SkeletonBlock(height: 72, radius: 20)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
             } else {
                 EmptyState(symbol: "person.slash", title: "Profil nicht gefunden",
                            message: "Dieses Profil gibt es nicht mehr oder es ist gerade nicht erreichbar.")
@@ -237,21 +264,23 @@ struct ProfileView: View {
 
     private func statsStrip(_ page: ProfilePage) -> some View {
         HStack(spacing: 0) {
-            stat(number: page.rating, text: nil, label: "Punkte")
-            stat(number: nil, text: page.winRate?.percentText ?? "–", label: "Siegquote")
+            stat(number: page.rating, text: nil, label: "Punkte", delay: 0)
+            stat(number: (page.winRate ?? 0) * 100, text: page.winRate == nil ? "–" : nil, label: "Siegquote", delay: 0.08, suffix: " %")
             stat(number: nil, text: streakText(page.currentStreak), label: "Serie",
                  tint: (page.currentStreak ?? 0) > 0 ? Theme.me : (page.currentStreak ?? 0) < 0 ? Theme.opponent : .primary)
-            stat(number: Double(page.ratedMatches ?? 0), text: nil, label: "Matches")
+            stat(number: Double(page.ratedMatches ?? 0), text: nil, label: "Matches", delay: 0.24)
         }
         .padding(.vertical, 18)
         .background(Theme.surface, in: .rect(cornerRadius: 20, style: .continuous))
     }
 
-    private func stat(number: Double?, text: String?, label: String, tint: Color = .primary) -> some View {
+    private func stat(number: Double?, text: String?, label: String, tint: Color = .primary, delay: Double = 0, suffix: String = "") -> some View {
         VStack(spacing: 3) {
             Group {
-                if let number {
-                    CountUpText(value: number)
+                if let text {
+                    Text(text)
+                } else if let number {
+                    CountUpText(value: number, delay: delay) { Int($0.rounded()).formatted() + suffix }
                 } else {
                     Text(text ?? "–")
                 }
@@ -281,7 +310,16 @@ struct ProfileView: View {
                                          : "Sobald \(page?.displayName ?? "") bestätigte Matches hat, stehen sie hier.")
             } else {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
-                    ForEach(results) { ResultTile(result: $0) }
+                    ForEach(results) { result in
+                        NavigationLink {
+                            ResultDetailView(result: result)
+                                .zoomDestination(result.matchID, in: zoomNamespace)
+                        } label: {
+                            ResultTile(result: result)
+                                .zoomSource(result.matchID, in: zoomNamespace)
+                        }
+                        .buttonStyle(.pressScale)
+                    }
                 }
                 .padding(.horizontal, 2)
             }
@@ -298,8 +336,10 @@ struct ProfileView: View {
                             PostDetailView(post: post, authorName: page?.displayName ?? "",
                                            authorAvatar: account.imageURL(page?.avatarPath, bucket: .avatars),
                                            canDelete: isMe, onDelete: { Task { try? await account.deletePost(post.id); await load() } })
+                                .zoomDestination(post.id, in: zoomNamespace)
                         } label: {
                             PostTile(post: post, imageURL: account.imageURL(post.imagePath, bucket: .posts))
+                                .zoomSource(post.id, in: zoomNamespace)
                         }
                         .buttonStyle(.pressScale)
                     }
@@ -331,6 +371,14 @@ struct ProfileView: View {
     // MARK: Loading
 
     private func load() async {
+        if profileID == DemoProfile.id {
+            page = DemoProfile.page
+            relation = .none
+            results = DemoProfile.results
+            posts = DemoProfile.posts
+            isLoading = false
+            return
+        }
         isLoading = true
         defer { isLoading = false }
         do {
@@ -441,6 +489,53 @@ struct PostDetailView: View {
         }
         .background(Theme.background)
         .navigationTitle("Beitrag")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// A single confirmed result, opened from the profile grid.
+struct ResultDetailView: View {
+    let result: ProfileResult
+
+    private var attached: AttachedMatch? {
+        AttachedMatch(matchID: result.matchID, startedAt: result.startedAt, sets: result.sets,
+                      winnerSide: result.winnerSide, authorSide: result.playerSide,
+                      partnerName: result.partnerName, opponentNames: result.opponentNames)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                if let attached {
+                    ResultBanner(match: attached)
+                }
+                Card {
+                    VStack(spacing: 0) {
+                        ForEach(Array(result.setsFromPlayer.enumerated()), id: \.offset) { index, set in
+                            if index > 0 { RowDivider(inset: 16) }
+                            HStack {
+                                Text(set.isSuperTiebreak ? "Match-Tiebreak" : "Satz \(index + 1)")
+                                Spacer()
+                                Text(set.resultText)
+                                    .font(Theme.scoreFont(size: 17))
+                                    .foregroundStyle(set.winner == .me ? Theme.me : set.winner == .opponent ? Theme.opponent : .primary)
+                            }
+                            .padding(16)
+                        }
+                        RowDivider(inset: 16)
+                        HStack {
+                            Text("Gespielt")
+                            Spacer()
+                            Text(result.startedAt.formatted(date: .long, time: .shortened)).foregroundStyle(.secondary)
+                        }
+                        .padding(16)
+                    }
+                }
+            }
+            .padding()
+        }
+        .background(Theme.background)
+        .navigationTitle("Ergebnis")
         .navigationBarTitleDisplayMode(.inline)
     }
 }
