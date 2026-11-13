@@ -44,8 +44,9 @@ Matches mit Bestätigung durch den Gegner und die Spielstärke-Berechnung auf de
    - **Authentication → Providers → Email**: „Enable Email provider“ an.
    - Dort **„Confirm email“ ausschalten**, damit neue Konten sofort nutzbar sind. Sonst schickt Supabase erst eine
      Bestätigungs-Mail, und die App meldet „Bitte bestätige zuerst deine E-Mail-Adresse“.
-   - **Authentication → URL Configuration**: **Site URL** `pointcheck://login`, und `pointcheck://login` bei **Redirect URLs** eintragen.
-     Darüber öffnet der Link aus der „Passwort vergessen“-Mail die App, die dann ein neues Passwort abfragt.
+   - **Authentication → URL Configuration**: **Site URL** `pointcheck://login`; bei **Redirect URLs** sowohl
+     `pointcheck://login` als auch `pointcheck://reset-password` eintragen. Über die zweite Adresse öffnet der Link
+     aus der „Passwort vergessen“-Mail die App direkt im Bildschirm „Neues Passwort“.
    - Die E-Mail-Vorlage **„Reset Password“** kann bleiben wie sie ist (sie enthält den Link).
    - Der eingebaute E-Mail-Versand schickt nur wenige Mails pro Stunde. Für echte Nutzer später einen eigenen
      E-Mail-Dienst (SMTP) unter **Authentication → Emails → SMTP** eintragen.

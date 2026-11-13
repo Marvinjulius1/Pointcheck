@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(WatchSync.self) private var sync
     @Environment(\.dismiss) private var dismiss
     @State private var confirmSignOut = false
+    @State private var showsPasswordSheet = false
 
     var body: some View {
         List {
@@ -38,12 +39,20 @@ struct SettingsView: View {
             }
 
             Section {
+                LabeledContent("E-Mail", value: account.client.auth.currentUser?.email ?? "–")
+                Button("Passwort ändern") { showsPasswordSheet = true }
+            } header: {
+                Text("Konto")
+            }
+
+            Section {
                 Button("Abmelden", role: .destructive) { confirmSignOut = true }
             } footer: {
                 Text("Deine Matches bleiben auf Watch und iPhone erhalten.")
             }
         }
         .navigationTitle("Einstellungen")
+        .sheet(isPresented: $showsPasswordSheet) { ChangePasswordSheet() }
         .confirmationDialog("Abmelden?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Abmelden", role: .destructive) {
                 Task { await account.signOut(); dismiss() }

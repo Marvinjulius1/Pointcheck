@@ -51,6 +51,10 @@ final class AccountService {
     /// Where the sign-in link in the e-mail leads: opens this app (URL scheme in Info.plist).
     /// Must also be listed in Supabase under Authentication → URL Configuration → Redirect URLs.
     static let loginRedirect = URL(string: "pointcheck://login")!
+    /// The "Passwort vergessen" link opens the app here, so it can tell reset from sign-in.
+    /// Must also be listed in Supabase under Redirect URLs.
+    static let resetRedirect = URL(string: "pointcheck://reset-password")!
+    @ObservationIgnored private var pendingPasswordReset = false
 
     func start() {
         guard authTask == nil else { return }
@@ -62,7 +66,11 @@ final class AccountService {
                     state = .resettingPassword
                 case .initialSession, .signedIn, .tokenRefreshed, .userUpdated:
                     if session != nil {
-                        if state != .resettingPassword { state = .signedIn }
+                        if pendingPasswordReset || state == .resettingPassword {
+                            state = .resettingPassword
+                        } else {
+                            state = .signedIn
+                        }
                         await refresh()
                     } else {
                         state = .signedOut
@@ -136,28 +144,47 @@ final class AccountService {
         await refresh()
     }
 
-    /// Sends the reset mail; its link opens the app (pointcheck://login) in reset mode.
+    /// Sends the reset mail; its link opens the app at pointcheck://reset-password.
     func requestPasswordReset(email: String) async throws {
         let address = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        try await client.auth.resetPasswordForEmail(address, redirectTo: Self.loginRedirect)
+        try await client.auth.resetPasswordForEmail(address, redirectTo: Self.resetRedirect)
     }
 
-    func setNewPassword(_ password: String) async throws {
+    /// Changes the password of the signed-in user (settings, or after a reset link).
+    func updatePassword(_ password: String) async throws {
         guard password.count >= 8 else { throw SignInError.weakPassword }
-        try await client.auth.update(user: UserAttributes(password: password))
+        do {
+            try await client.auth.update(user: UserAttributes(password: password))
+        } catch let error as AuthError where error.errorCode == .weakPassword {
+            throw SignInError.weakPassword
+        }
+    }
+
+    /// After the reset link: set the new password and enter the app.
+    func setNewPassword(_ password: String) async throws {
+        try await updatePassword(password)
+        pendingPasswordReset = false
         state = .signedIn
         await refresh()
+    }
+
+    /// Gives up on the reset and signs out again.
+    func cancelPasswordReset() async {
+        pendingPasswordReset = false
+        await signOut()
     }
 
     /// The sign-in link from the e-mail was tapped and opened the app.
     func handleOpenURL(_ url: URL) async {
         guard url.scheme == Self.loginRedirect.scheme else { return }
+        let isReset = url.host == Self.resetRedirect.host || url.absoluteString.contains("type=recovery")
+        pendingPasswordReset = isReset
         do {
             _ = try await client.auth.session(from: url)
-            let isRecovery = url.absoluteString.contains("type=recovery")
-            state = isRecovery ? .resettingPassword : .signedIn
+            state = isReset ? .resettingPassword : .signedIn
             await refresh()
         } catch {
+            pendingPasswordReset = false
             print("Sign-in link failed: \(error)")
         }
     }

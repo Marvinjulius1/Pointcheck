@@ -195,6 +195,9 @@ struct NewPasswordView: View {
                 WelcomePrimaryButton(title: "Passwort speichern", enabled: canSave, isWorking: isWorking) {
                     Task { await save() }
                 }
+                Button("Abbrechen") { Task { await account.cancelPasswordReset() } }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 20)
             .padding(.top, 56)
@@ -293,5 +296,79 @@ struct WelcomeNotice: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
             .transition(.opacity)
+    }
+}
+
+// MARK: - Change password (settings)
+
+struct ChangePasswordSheet: View {
+    @Environment(AccountService.self) private var account
+    @Environment(\.dismiss) private var dismiss
+    @State private var password = ""
+    @State private var repeated = ""
+    @State private var showsPassword = false
+    @State private var isWorking = false
+    @State private var errorText: String?
+    @State private var saved = false
+    @FocusState private var focus: WelcomeView.Field?
+
+    private var canSave: Bool { password.count >= 8 && password == repeated }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    Card {
+                        WelcomeField(placeholder: "Neues Passwort (mind. 8 Zeichen)", text: $password, symbol: "lock",
+                                     field: .password, focus: $focus,
+                                     isSecure: !showsPassword, onToggleSecure: { showsPassword.toggle() })
+                            .textContentType(.newPassword)
+                            .submitLabel(.next)
+                            .onSubmit { focus = .repeated }
+                        RowDivider(inset: 50)
+                        WelcomeField(placeholder: "Passwort wiederholen", text: $repeated, symbol: "lock",
+                                     field: .repeated, focus: $focus, isSecure: !showsPassword)
+                            .textContentType(.newPassword)
+                            .submitLabel(.go)
+                            .onSubmit { Task { await save() } }
+                    }
+                    if let errorText {
+                        WelcomeNotice(text: errorText, isError: true)
+                    } else if !repeated.isEmpty, password != repeated {
+                        WelcomeNotice(text: "Die Passwörter stimmen nicht überein.", isError: true)
+                    } else if saved {
+                        WelcomeNotice(text: "Passwort geändert.", isError: false)
+                    }
+                    WelcomePrimaryButton(title: "Passwort speichern", enabled: canSave && !saved, isWorking: isWorking) {
+                        Task { await save() }
+                    }
+                }
+                .padding(20)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Passwort ändern")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(saved ? "Fertig" : "Abbrechen") { dismiss() } }
+            }
+            .onAppear { focus = .password }
+        }
+    }
+
+    private func save() async {
+        guard canSave, !isWorking else { return }
+        isWorking = true
+        errorText = nil
+        defer { isWorking = false }
+        do {
+            try await account.updatePassword(password)
+            saved = true
+            try? await Task.sleep(for: .seconds(0.8))
+            dismiss()
+        } catch let error as AccountService.SignInError {
+            errorText = error.localizedDescription
+        } catch {
+            errorText = "Das Passwort konnte nicht geändert werden. Versuch es noch einmal."
+        }
     }
 }
