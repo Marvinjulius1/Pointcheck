@@ -10,8 +10,8 @@ final class AccountService {
     enum State: Equatable {
         case loading
         case signedOut
-        /// Code was sent to this address and must be entered.
-        case awaitingCode(email: String)
+        /// Arrived through a password-reset link: a new password must be set.
+        case resettingPassword
         case signedIn
     }
 
@@ -58,12 +58,12 @@ final class AccountService {
             guard let self else { return }
             for await (event, session) in client.auth.authStateChanges {
                 switch event {
+                case .passwordRecovery:
+                    state = .resettingPassword
                 case .initialSession, .signedIn, .tokenRefreshed, .userUpdated:
                     if session != nil {
-                        state = .signedIn
+                        if state != .resettingPassword { state = .signedIn }
                         await refresh()
-                    } else if case .awaitingCode = state {
-                        // keep the code screen
                     } else {
                         state = .signedOut
                     }
@@ -77,49 +77,74 @@ final class AccountService {
         }
     }
 
-    // MARK: - Sign in with an e-mail code
+    // MARK: - Sign in with e-mail and password
 
     enum SignInError: LocalizedError {
-        case noAccount
+        case wrongCredentials
         case alreadyRegistered
+        case weakPassword
+        case emailNotConfirmed
 
         var errorDescription: String? {
             switch self {
-            case .noAccount: "Zu dieser E-Mail-Adresse gibt es noch kein Konto. Wechsle zu „Registrieren“."
+            case .wrongCredentials: "E-Mail-Adresse oder Passwort stimmt nicht."
             case .alreadyRegistered: "Zu dieser E-Mail-Adresse gibt es schon ein Konto. Wechsle zu „Anmelden“."
+            case .weakPassword: "Das Passwort braucht mindestens 8 Zeichen."
+            case .emailNotConfirmed: "Bitte bestätige zuerst deine E-Mail-Adresse über den Link in der E-Mail."
             }
         }
     }
 
-    /// Sends the sign-in code. `createAccount` = Registrieren (new account with name);
-    /// otherwise only existing accounts receive a code.
-    func sendCode(email: String, displayName: String, createAccount: Bool) async throws {
+    /// Creates an account. With e-mail confirmation switched off in Supabase the person is
+    /// signed in right away; otherwise a confirmation mail is sent first.
+    func register(email: String, password: String, displayName: String) async throws {
         let address = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard password.count >= 8 else { throw SignInError.weakPassword }
         do {
-            try await client.auth.signInWithOTP(
+            let response = try await client.auth.signUp(
                 email: address,
-                redirectTo: Self.loginRedirect,
-                shouldCreateUser: createAccount,
-                data: createAccount && !name.isEmpty ? ["display_name": .string(name)] : nil
+                password: password,
+                data: name.isEmpty ? nil : ["display_name": .string(name)],
+                redirectTo: Self.loginRedirect
             )
-        } catch let error as AuthError {
-            // Supabase answers "Signups not allowed for otp" when the address is unknown
-            // and no account may be created.
-            let unknownAddress = [.otpDisabled, .signupDisabled, .userNotFound].contains(error.errorCode)
-                || error.message.localizedCaseInsensitiveContains("signups not allowed")
-            if !createAccount, unknownAddress {
-                throw SignInError.noAccount
+            if case .user = response {
+                // Confirmation required – try signing in to give a clear message.
+                try await signIn(email: address, password: password)
             }
-            throw error
+        } catch let error as AuthError {
+            switch error.errorCode {
+            case .userAlreadyExists: throw SignInError.alreadyRegistered
+            case .weakPassword: throw SignInError.weakPassword
+            default: throw error
+            }
         }
-        state = .awaitingCode(email: address)
     }
 
-    func verify(code: String) async throws {
-        guard case .awaitingCode(let email) = state else { return }
-        let token = code.filter(\.isNumber)
-        try await client.auth.verifyOTP(email: email, token: token, type: .email)
+    func signIn(email: String, password: String) async throws {
+        let address = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        do {
+            try await client.auth.signIn(email: address, password: password)
+        } catch let error as AuthError {
+            switch error.errorCode {
+            case .invalidCredentials: throw SignInError.wrongCredentials
+            case .emailNotConfirmed: throw SignInError.emailNotConfirmed
+            default: throw error
+            }
+        }
+        state = .signedIn
+        await refresh()
+    }
+
+    /// Sends the reset mail; its link opens the app (pointcheck://login) in reset mode.
+    func requestPasswordReset(email: String) async throws {
+        let address = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        try await client.auth.resetPasswordForEmail(address, redirectTo: Self.loginRedirect)
+    }
+
+    func setNewPassword(_ password: String) async throws {
+        guard password.count >= 8 else { throw SignInError.weakPassword }
+        try await client.auth.update(user: UserAttributes(password: password))
         state = .signedIn
         await refresh()
     }
@@ -129,15 +154,12 @@ final class AccountService {
         guard url.scheme == Self.loginRedirect.scheme else { return }
         do {
             _ = try await client.auth.session(from: url)
-            state = .signedIn
+            let isRecovery = url.absoluteString.contains("type=recovery")
+            state = isRecovery ? .resettingPassword : .signedIn
             await refresh()
         } catch {
             print("Sign-in link failed: \(error)")
         }
-    }
-
-    func cancelCode() {
-        state = .signedOut
     }
 
     func signOut() async {

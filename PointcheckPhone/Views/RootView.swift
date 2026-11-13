@@ -11,8 +11,11 @@ struct AppGate: View {
             case .loading:
                 Color.black.ignoresSafeArea()
                 ProgressView().tint(.white)
-            case .signedOut, .awaitingCode:
+            case .signedOut:
                 WelcomeView()
+                    .transition(.opacity)
+            case .resettingPassword:
+                NewPasswordView()
                     .transition(.opacity)
             case .signedIn:
                 RootView()

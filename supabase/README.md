@@ -40,38 +40,16 @@ Matches mit Bestätigung durch den Gegner und die Spielstärke-Berechnung auf de
 4. Alle Dateien aus `migrations/` **der Reihe nach** (nach Dateiname sortiert) einfügen und jeweils auf **Run** klicken.
    Alle Migrationen ab dem 11.11. sind so geschrieben, dass ein versehentlicher zweiter Lauf nichts kaputtmacht.
    Die Datei `…_storage.sql` legt die Bild-Buckets an; sie läuft nur in Supabase (nicht lokal).
-5. Unter **Authentication → Providers → Email** die Anmeldung per E-Mail aktiv lassen.
-   „Mit Apple anmelden“ kommt später mit dem Apple Developer Program dazu.
-6. Die App meldet per **6-stelligem Code** an (kein Link). Dafür unter **Authentication → Emails** (Templates)
-   in den Vorlagen **„Magic Link“** und **„Confirm signup“** den Text ersetzen, z. B.:
-
-   ```html
-   <h2>Dein Pointcheck-Code</h2>
-   <p>Gib diesen Code in der App ein:</p>
-   <p style="font-size:28px;font-weight:bold;letter-spacing:4px">{{ .Token }}</p>
-   <p>Der Code ist eine Stunde gültig.</p>
-   ```
-
-7. Unter **Authentication → URL Configuration**:
-   - **Site URL** auf `pointcheck://login` setzen,
-   - bei **Redirect URLs** `pointcheck://login` hinzufügen.
-
-   Dann öffnet auch ein Link in der E-Mail direkt die App (statt einer nicht erreichbaren Seite).
-
-   Hinweis: Der eingebaute E-Mail-Versand von Supabase schickt nur wenige Mails pro Stunde – zum Testen reicht das.
-   Für echte Nutzer später einen eigenen E-Mail-Dienst (SMTP) unter **Authentication → Emails → SMTP** eintragen.
-
-⚠️ `tests/local_supabase_stub.sql` **nicht** in Supabase ausführen. Die Datei ersetzt Supabase nur für lokale Tests.
-
-## Tests (lokal, ohne Supabase)
-
-Gegen ein lokales PostgreSQL 15+:
-```bash
-PGHOST=localhost PGUSER=postgres supabase/tests/run_local.sh
-```
-Der Lauf legt jedes Mal eine frische Testdatenbank an. Geprüft werden: Profil beim Registrieren,
-Sichtbarkeit, gesperrte Spalten, Verlinken, Bestätigung in der App, Spielstärke-Berechnung,
-Schutz vor doppelter Wertung und Ablehnung.
+5. **Anmeldung mit Passwort** (so funktioniert die App):
+   - **Authentication → Providers → Email**: „Enable Email provider“ an.
+   - Dort **„Confirm email“ ausschalten**, damit neue Konten sofort nutzbar sind. Sonst schickt Supabase erst eine
+     Bestätigungs-Mail, und die App meldet „Bitte bestätige zuerst deine E-Mail-Adresse“.
+   - **Authentication → URL Configuration**: **Site URL** `pointcheck://login`, und `pointcheck://login` bei **Redirect URLs** eintragen.
+     Darüber öffnet der Link aus der „Passwort vergessen“-Mail die App, die dann ein neues Passwort abfragt.
+   - Die E-Mail-Vorlage **„Reset Password“** kann bleiben wie sie ist (sie enthält den Link).
+   - Der eingebaute E-Mail-Versand schickt nur wenige Mails pro Stunde. Für echte Nutzer später einen eigenen
+     E-Mail-Dienst (SMTP) unter **Authentication → Emails → SMTP** eintragen.
+   - „Mit Apple anmelden“ kommt später mit dem Apple Developer Program dazu.
 
 ## Schlüssel – was in die App darf
 - **Project URL** und **anon / publishable key**: dürfen in die App und ins Repository.
