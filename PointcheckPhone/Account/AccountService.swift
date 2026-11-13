@@ -21,7 +21,11 @@ final class AccountService {
     /// Status of my uploaded matches, by match id.
     private(set) var uploads: [UUID: RemoteMatchStatus] = [:]
     private(set) var ratingHistory: [RatingHistoryRow] = []
-    private(set) var friends: [Friend] = []
+    private(set) var followRequests: [PersonRow] = []
+    private(set) var recentFollowers: [PersonRow] = []
+    private(set) var feed: [FeedItem] = []
+    private(set) var feedHasMore = false
+    private(set) var suggestions: [PersonRow] = []
     /// Confirmed matches someone else entered with me in it (not on my watch).
     private(set) var foreignMatches: [MatchSummary] = []
     /// Matches I play in but did not enter, by id (for the "entered by a co-player" label).
@@ -121,7 +125,11 @@ final class AccountService {
         openConfirmations = []
         uploads = [:]
         ratingHistory = []
-        friends = []
+        followRequests = []
+        recentFollowers = []
+        feed = []
+        feedHasMore = false
+        suggestions = []
         foreignMatches = []
         foreignIDs = []
     }
@@ -160,11 +168,19 @@ final class AccountService {
             foreignMatches = feed.filter { !$0.createdByMe && $0.status == .confirmed }.map(\.summary)
         }
 
-        if let loaded: [Friend] = await load("friends", {
-            try await self.client.rpc("my_friends").execute().value
+        if let loaded: [PersonRow] = await load("follow requests", {
+            try await self.client.rpc("follow_requests").execute().value
         }) {
-            friends = loaded
+            followRequests = loaded
         }
+
+        if let loaded: [PersonRow] = await load("recent followers", {
+            try await self.client.rpc("recent_followers").execute().value
+        }) {
+            recentFollowers = loaded
+        }
+
+        await loadFeed()
 
         if let loaded: [RatingHistoryRow] = await load("rating history", {
             try await self.client.from("rating_history").select("id, rating_before, rating_after, created_at")
@@ -201,23 +217,31 @@ final class AccountService {
         var displayName: String
         var username: String?
         var visibility: ProfileVisibility
+        var bio: String?
+        var homeClub: String?
 
         enum CodingKeys: String, CodingKey {
-            case username, visibility
+            case username, visibility, bio
             case displayName = "display_name"
+            case homeClub = "home_club"
         }
     }
 
-    func updateProfile(displayName: String, username: String, visibility: ProfileVisibility) async throws {
+    func updateProfile(displayName: String, username: String, visibility: ProfileVisibility,
+                       bio: String = "", homeClub: String = "") async throws {
         guard let userID else { return }
         let cleanName = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if !cleanName.isEmpty, cleanName.range(of: #"^[a-z0-9_.]{3,20}$"#, options: .regularExpression) == nil {
             throw ProfileError.invalidUsername
         }
+        let cleanBio = bio.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanClub = homeClub.trimmingCharacters(in: .whitespacesAndNewlines)
         let patch = ProfilePatch(
             displayName: String(displayName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40)),
             username: cleanName.isEmpty ? nil : cleanName,
-            visibility: visibility
+            visibility: visibility,
+            bio: cleanBio.isEmpty ? nil : String(cleanBio.prefix(160)),
+            homeClub: cleanClub.isEmpty ? nil : String(cleanClub.prefix(60))
         )
         do {
             try await client.from("profiles").update(patch).eq("id", value: userID).execute()
@@ -336,9 +360,39 @@ final class AccountService {
         await refresh()
     }
 
-    // MARK: - Friends
+    // MARK: - Images (Supabase Storage)
 
-    enum FriendError: LocalizedError {
+    enum Bucket: String { case avatars, posts }
+
+    /// Public URL of a stored image, or `nil` without a path.
+    func imageURL(_ path: String?, bucket: Bucket) -> URL? {
+        guard let path, !path.isEmpty else { return nil }
+        return try? client.storage.from(bucket.rawValue).getPublicURL(path: path)
+    }
+
+    /// Uploads a JPEG into my folder of the bucket and returns its path.
+    private func uploadImage(_ data: Data, bucket: Bucket, name: String) async throws -> String {
+        guard let userID else { throw UploadError.notDecided }
+        let path = "\(userID.uuidString.lowercased())/\(name).jpg"
+        try await client.storage.from(bucket.rawValue).upload(
+            path,
+            data: data,
+            options: FileOptions(cacheControl: "3600", contentType: "image/jpeg", upsert: true)
+        )
+        return path
+    }
+
+    func uploadAvatar(_ jpeg: Data) async throws {
+        guard let userID else { return }
+        // New file name each time, so cached old photos are not shown.
+        let path = try await uploadImage(jpeg, bucket: .avatars, name: "avatar-\(Int(Date.now.timeIntervalSince1970))")
+        try await client.from("profiles").update(["avatar_path": path]).eq("id", value: userID).execute()
+        await refresh()
+    }
+
+    // MARK: - Following
+
+    enum FollowError: LocalizedError {
         case notFound(String)
         case yourself
 
@@ -350,27 +404,127 @@ final class AccountService {
         }
     }
 
-    /// Sends a friend request by username. Returns `true` if you are friends right away
-    /// (the other person had already asked you).
+    /// Follows a profile. Returns the new relation (`following` or `pending`).
     @discardableResult
-    func addFriend(username: String) async throws -> Bool {
-        let name = username.trimmingCharacters(in: CharacterSet(charactersIn: "@ ")).lowercased()
-        guard let found = await findProfile(username: name) else { throw FriendError.notFound(name) }
-        guard found.id != userID else { throw FriendError.yourself }
-        let status: String = try await client.rpc("request_friend", params: ["p_profile": found.id]).execute().value
+    func follow(_ profileID: UUID) async throws -> FollowRelation {
+        let status: String = try await client.rpc("follow", params: ["p_profile": profileID]).execute().value
         await refresh()
-        return status == "accepted"
+        return status == "accepted" ? .following : .pending
     }
 
-    func acceptFriend(_ friend: Friend) async throws {
-        try await client.rpc("accept_friend", params: ["p_profile": friend.profileID]).execute()
+    func unfollow(_ profileID: UUID) async throws {
+        try await client.rpc("unfollow", params: ["p_profile": profileID]).execute()
         await refresh()
     }
 
-    func removeFriend(_ friend: Friend) async throws {
-        try await client.rpc("remove_friend", params: ["p_profile": friend.profileID]).execute()
+    func acceptFollow(_ follower: PersonRow) async throws {
+        try await client.rpc("accept_follow", params: ["p_follower": follower.profileID]).execute()
         await refresh()
     }
+
+    func removeFollower(_ follower: PersonRow) async throws {
+        try await client.rpc("remove_follower", params: ["p_follower": follower.profileID]).execute()
+        await refresh()
+    }
+
+    func profilePage(_ profileID: UUID) async throws -> ProfilePage? {
+        let rows: [ProfilePage] = try await client.rpc("profile_page", params: ["p_profile": profileID]).execute().value
+        return rows.first
+    }
+
+    func followers(of profileID: UUID) async -> [PersonRow] {
+        (try? await client.rpc("followers_of", params: ["p_profile": profileID]).execute().value) ?? []
+    }
+
+    func following(of profileID: UUID) async -> [PersonRow] {
+        (try? await client.rpc("following_of", params: ["p_profile": profileID]).execute().value) ?? []
+    }
+
+    func search(_ query: String) async -> [PersonRow] {
+        guard query.trimmingCharacters(in: .whitespaces).count >= 2 else { return [] }
+        return (try? await client.rpc("search_profiles", params: ["p_query": query]).execute().value) ?? []
+    }
+
+    func loadSuggestions() async {
+        if let loaded: [PersonRow] = await load("suggestions", {
+            try await self.client.rpc("suggested_profiles").execute().value
+        }) {
+            suggestions = loaded
+        }
+    }
+
+    // MARK: - Feed & posts
+
+    private static let feedPageSize = 20
+
+    private struct FeedParams: Encodable {
+        var p_limit: Int
+        var p_before: Date?
+    }
+
+    func loadFeed() async {
+        if let page: [FeedItem] = await load("feed", {
+            try await self.client.rpc("home_feed", params: FeedParams(p_limit: Self.feedPageSize, p_before: nil)).execute().value
+        }) {
+            feed = page
+            feedHasMore = page.count == Self.feedPageSize
+        }
+    }
+
+    func loadMoreFeed() async {
+        guard feedHasMore, let last = feed.last else { return }
+        if let page: [FeedItem] = await load("feed page", {
+            try await self.client.rpc("home_feed", params: FeedParams(p_limit: Self.feedPageSize, p_before: last.createdAt)).execute().value
+        }) {
+            feed += page
+            feedHasMore = page.count == Self.feedPageSize
+        }
+    }
+
+    private struct ProfileListParams: Encodable {
+        var p_profile: UUID
+        var p_limit: Int = 30
+        var p_before: Date?
+    }
+
+    func profilePosts(_ profileID: UUID, before: Date? = nil) async -> [ProfilePost] {
+        (try? await client.rpc("profile_posts", params: ProfileListParams(p_profile: profileID, p_before: before)).execute().value) ?? []
+    }
+
+    func profileResults(_ profileID: UUID, before: Date? = nil) async -> [ProfileResult] {
+        (try? await client.rpc("profile_results", params: ProfileListParams(p_profile: profileID, p_before: before)).execute().value) ?? []
+    }
+
+    private struct PostInsert: Encodable {
+        var text: String
+        var imagePath: String?
+        var matchID: UUID?
+
+        enum CodingKeys: String, CodingKey {
+            case text
+            case imagePath = "image_path"
+            case matchID = "match_id"
+        }
+    }
+
+    /// Creates a post. A match can only be attached if it is on the server (uploaded).
+    func createPost(text: String, image: Data?, matchID: UUID?) async throws {
+        var imagePath: String?
+        if let image {
+            imagePath = try await uploadImage(image, bucket: .posts, name: UUID().uuidString.lowercased())
+        }
+        let cleanText = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1000))
+        try await client.from("posts").insert(PostInsert(text: cleanText, imagePath: imagePath, matchID: matchID)).execute()
+        await loadFeed()
+    }
+
+    func deletePost(_ postID: UUID) async throws {
+        try await client.from("posts").delete().eq("id", value: postID).execute()
+        await loadFeed()
+    }
+
+    /// Things waiting for me: follow requests and results to confirm.
+    var activityCount: Int { followRequests.count + openConfirmations.count }
 
     func leaderboard() async -> [LeaderboardRow] {
         (try? await client.from("leaderboard").select().limit(100).execute().value) ?? []
