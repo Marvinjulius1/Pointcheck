@@ -96,9 +96,16 @@ struct ProfileView: View {
             if isMe {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink { ActivityView() } label: {
-                        Image(systemName: account.activityCount > 0 ? "bell.badge" : "bell")
-                            .symbolRenderingMode(.palette)
-                            .foregroundStyle(Theme.opponent, Color.primary)
+                        Image(systemName: "bell")
+                            .foregroundStyle(Color.primary)
+                            .overlay(alignment: .topTrailing) {
+                                if account.activityCount > 0 {
+                                    Circle()
+                                        .fill(Theme.me)
+                                        .frame(width: 7, height: 7)
+                                        .offset(x: 2, y: -1)
+                                }
+                            }
                     }
                     .accessibilityLabel(account.activityCount > 0 ? "Aktivität, \(account.activityCount) neu" : "Aktivität")
                 }
