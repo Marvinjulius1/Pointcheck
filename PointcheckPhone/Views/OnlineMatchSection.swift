@@ -19,7 +19,7 @@ struct OnlineMatchSection: View {
                 Label("Von einem Mitspieler eingetragen und bestätigt. Es zählt für deine Spielstärke.",
                       systemImage: "checkmark.seal.fill")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.me)
+                    .foregroundStyle(.secondary)
             } else if !match.isDecided {
                 Text("Nur entschiedene Matches können eingetragen werden.")
                     .foregroundStyle(.secondary)

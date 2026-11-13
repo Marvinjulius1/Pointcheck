@@ -18,9 +18,15 @@ struct SearchView: View {
                         EmptyState(symbol: "magnifyingglass", title: "Niemand gefunden",
                                    message: "Prüf die Schreibweise oder frag nach dem @benutzernamen.")
                     } else {
-                        peopleCard(results, subtitle: { $0.homeClub })
+                        peopleCard(results, subtitle: { $0.homeClub }, remember: true)
                     }
                 } else {
+                    if !account.recentSearches.isEmpty {
+                        SectionTitle("Zuletzt gesucht") {
+                            Button("Löschen") { account.clearRecentSearches() }
+                        }
+                        peopleCard(account.recentSearches, subtitle: { $0.username.map { "@\($0)" } }, remember: true)
+                    }
                     if !account.suggestions.isEmpty {
                         SectionTitle("Vorschläge für dich")
                         peopleCard(account.suggestions, subtitle: { $0.reason })
@@ -52,11 +58,14 @@ struct SearchView: View {
         .profileNavigation()
     }
 
-    private func peopleCard(_ people: [PersonRow], subtitle: @escaping (PersonRow) -> String?) -> some View {
+    private func peopleCard(_ people: [PersonRow], subtitle: @escaping (PersonRow) -> String?, remember: Bool = false) -> some View {
         VStack(spacing: 0) {
             ForEach(Array(people.enumerated()), id: \.element.id) { index, person in
                 if index > 0 { RowDivider(inset: 72) }
                 PersonListRow(person: person, subtitle: subtitle(person) ?? person.username.map { "@\($0)" })
+                    .simultaneousGesture(TapGesture().onEnded {
+                        if remember { account.rememberSearch(person) }
+                    })
                     .revealOnAppear(delay: min(Double(index) * 0.04, 0.3))
             }
         }

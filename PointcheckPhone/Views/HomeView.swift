@@ -86,7 +86,7 @@ struct HomeView: View {
                             .overlay(alignment: .topTrailing) {
                                 Image(systemName: "plus.circle.fill")
                                     .font(.system(size: 18))
-                                    .foregroundStyle(.white, Theme.me)
+                                    .foregroundStyle(Theme.onAccent, Theme.accent)
                                     .offset(x: -4, y: 2)
                             }
                     }

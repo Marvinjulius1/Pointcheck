@@ -84,9 +84,9 @@ struct IconTile: View {
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: size * 0.48, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onAccent)
             .frame(width: size, height: size)
-            .background(tint.gradient, in: .rect(cornerRadius: size * 0.28, style: .continuous))
+            .background(tint, in: .rect(cornerRadius: size * 0.28, style: .continuous))
     }
 }
 
@@ -204,10 +204,10 @@ struct ProfilePhoto: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(Color.accentColor.gradient)
+            Circle().fill(Theme.surface)
             Text(String(name.prefix(1)).uppercased())
                 .font(.system(size: size * 0.42, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(.secondary)
             if let url {
                 AsyncImage(url: url) { phase in
                     if let image = phase.image {
@@ -247,7 +247,7 @@ struct FollowButton: View {
             .padding(.horizontal, compact ? 12 : 16)
             .padding(.vertical, 7)
             .background(background, in: .capsule)
-            .foregroundStyle(relation == .none ? Color.white : Color.primary)
+            .foregroundStyle(relation == .none ? Theme.onAccent : Color.primary)
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
@@ -257,7 +257,7 @@ struct FollowButton: View {
     }
 
     private var background: AnyShapeStyle {
-        relation == .none ? AnyShapeStyle(Theme.me.gradient) : AnyShapeStyle(Color(.tertiarySystemFill))
+        relation == .none ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color(.tertiarySystemFill))
     }
 
     private func toggle() async {
@@ -337,9 +337,9 @@ struct EmptyState: View {
         VStack(spacing: 12) {
             Image(systemName: symbol)
                 .font(.system(size: 34, weight: .medium))
-                .foregroundStyle(Theme.me)
+                .foregroundStyle(Theme.accent)
                 .frame(width: 72, height: 72)
-                .background(Theme.me.opacity(0.12), in: .circle)
+                .background(Theme.surface, in: .circle)
             Text(title)
                 .font(.title3.weight(.bold))
             Text(message)
@@ -349,7 +349,7 @@ struct EmptyState: View {
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .buttonStyle(.glassProminent)
-                    .tint(Theme.me)
+                    .tint(Theme.accent)
                     .padding(.top, 4)
             }
         }
@@ -477,7 +477,7 @@ struct AvatarBubble: View {
             ProfilePhoto(name: name, url: url, size: 64)
                 .padding(3)
                 .overlay(
-                    Circle().stroke(highlighted ? AnyShapeStyle(Theme.me.gradient) : AnyShapeStyle(Theme.hairline), lineWidth: highlighted ? 2.5 : 1)
+                    Circle().stroke(highlighted ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Theme.hairline), lineWidth: highlighted ? 2 : 1)
                 )
             Text(caption ?? name)
                 .font(.caption)

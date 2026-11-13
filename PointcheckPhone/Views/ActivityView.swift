@@ -67,7 +67,7 @@ private struct RequestRow: View {
             .buttonStyle(.plain)
             Button("Annehmen") { act { try await account.acceptFollow(person) } }
                 .buttonStyle(.glassProminent)
-                .tint(Theme.me)
+                .tint(Theme.accent)
                 .controlSize(.small)
             Button {
                 act { try await account.removeFollower(person) }
@@ -124,7 +124,7 @@ struct ConfirmationCard: View {
                         Text("Stimmt").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.glassProminent)
-                    .tint(Theme.me)
+                    .tint(Theme.accent)
                     Button(role: .destructive) { act { try await account.reject(item) } } label: {
                         Text("Falsch").frame(maxWidth: .infinity)
                     }

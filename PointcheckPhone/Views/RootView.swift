@@ -50,10 +50,6 @@ struct RootView: View {
             Tab("Suche", systemImage: "magnifyingglass") {
                 NavigationStack { SearchView() }
             }
-            Tab("Aktivität", systemImage: "bell.fill") {
-                NavigationStack { ActivityView() }
-            }
-            .badge(account.activityCount)
             Tab("Profil", systemImage: "person.crop.circle.fill") {
                 NavigationStack { MyProfileTab() }
             }

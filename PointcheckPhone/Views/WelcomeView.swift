@@ -165,7 +165,7 @@ struct NewPasswordView: View {
                 VStack(spacing: 10) {
                     Image(systemName: "lock.rotation")
                         .font(.system(size: 30, weight: .semibold))
-                        .foregroundStyle(Theme.me)
+                        .foregroundStyle(Theme.accent)
                         .frame(width: 64, height: 64)
                         .background(Theme.surface, in: .rect(cornerRadius: 18, style: .continuous))
                     Text("Neues Passwort")
@@ -235,7 +235,7 @@ struct WelcomeField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
-                .foregroundStyle(focus.wrappedValue == field ? Theme.me : .secondary)
+                .foregroundStyle(focus.wrappedValue == field ? Theme.accent : .secondary)
                 .frame(width: 22)
             Group {
                 if isSecure {
@@ -270,13 +270,13 @@ struct WelcomePrimaryButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                if isWorking { ProgressView().tint(.white) }
+                if isWorking { ProgressView().tint(Theme.onAccent) }
                 Text(title).font(.headline)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onAccent)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Theme.me.gradient, in: .rect(cornerRadius: 16, style: .continuous))
+            .background(Theme.accent, in: .rect(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(!enabled || isWorking)
@@ -292,7 +292,7 @@ struct WelcomeNotice: View {
     var body: some View {
         Label(text, systemImage: isError ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
             .font(.footnote)
-            .foregroundStyle(isError ? Theme.opponent : Theme.me)
+            .foregroundStyle(isError ? Theme.opponent : .secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
             .transition(.opacity)

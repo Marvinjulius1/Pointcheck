@@ -36,7 +36,7 @@ struct PointcheckPhoneApp: App {
                 .onOpenURL { url in
                     Task { await account.handleOpenURL(url) }
                 }
-                .tint(Theme.me)
+                .tint(Theme.accent)
         }
         .modelContainer(PhoneEnvironment.container)
     }

@@ -26,6 +26,9 @@ final class AccountService {
     private(set) var feed: [FeedItem] = []
     private(set) var feedHasMore = false
     private(set) var suggestions: [PersonRow] = []
+    /// Players opened from the search, newest first (kept on this device).
+    private(set) var recentSearches: [PersonRow] = AccountService.loadRecentSearches()
+    private static let recentSearchesKey = "search.recent"
     /// Confirmed matches someone else entered with me in it (not on my watch).
     private(set) var foreignMatches: [MatchSummary] = []
     /// Matches I play in but did not enter, by id (for the "entered by a co-player" label).
@@ -513,6 +516,28 @@ final class AccountService {
 
     func following(of profileID: UUID) async -> [PersonRow] {
         (try? await client.rpc("following_of", params: ["p_profile": profileID]).execute().value) ?? []
+    }
+
+    func rememberSearch(_ person: PersonRow) {
+        var list = recentSearches.filter { $0.profileID != person.profileID }
+        var entry = person
+        entry.reason = nil
+        entry.relation = nil
+        list.insert(entry, at: 0)
+        recentSearches = Array(list.prefix(10))
+        if let data = try? JSONEncoder().encode(recentSearches) {
+            UserDefaults.standard.set(data, forKey: Self.recentSearchesKey)
+        }
+    }
+
+    func clearRecentSearches() {
+        recentSearches = []
+        UserDefaults.standard.removeObject(forKey: Self.recentSearchesKey)
+    }
+
+    private static func loadRecentSearches() -> [PersonRow] {
+        guard let data = UserDefaults.standard.data(forKey: recentSearchesKey) else { return [] }
+        return (try? JSONDecoder().decode([PersonRow].self, from: data)) ?? []
     }
 
     func search(_ query: String) async -> [PersonRow] {

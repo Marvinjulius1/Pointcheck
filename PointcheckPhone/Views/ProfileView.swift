@@ -95,6 +95,14 @@ struct ProfileView: View {
         .toolbar {
             if isMe {
                 ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink { ActivityView() } label: {
+                        Image(systemName: account.activityCount > 0 ? "bell.badge" : "bell")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(Theme.opponent, Color.primary)
+                    }
+                    .accessibilityLabel(account.activityCount > 0 ? "Aktivität, \(account.activityCount) neu" : "Aktivität")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink { SettingsView() } label: { Image(systemName: "gearshape") }
                         .accessibilityLabel("Einstellungen")
                 }
@@ -120,10 +128,10 @@ struct ProfileView: View {
                     if let level = page.level {
                         Text(level.formatted(.number.precision(.fractionLength(1))))
                             .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onAccent)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
-                            .background(Theme.me.gradient, in: .capsule)
+                            .background(Theme.accent, in: .capsule)
                             .overlay(Capsule().stroke(Theme.background, lineWidth: 2))
                             .offset(x: 4, y: 4)
                             .accessibilityLabel("Level \(level.formatted(.number.precision(.fractionLength(1))))")
@@ -649,9 +657,9 @@ struct ProfileEditor: View {
                                 }
                                 Image(systemName: "camera.fill")
                                     .font(.caption.weight(.bold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Theme.onAccent)
                                     .frame(width: 30, height: 30)
-                                    .background(Theme.me.gradient, in: .circle)
+                                    .background(Theme.accent, in: .circle)
                                     .overlay(Circle().stroke(Theme.background, lineWidth: 2))
                             }
                         }

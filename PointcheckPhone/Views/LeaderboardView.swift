@@ -30,7 +30,7 @@ struct LeaderboardView: View {
                     Spacer()
                     Text("\(Int(row.rating.rounded()))").font(Theme.scoreFont(size: 17))
                 }
-                .listRowBackground(row.id == account.userID ? Theme.me.opacity(0.12) : nil)
+                .listRowBackground(row.id == account.userID ? Theme.surface : nil)
             }
         }
         .navigationTitle("Rangliste")

@@ -10,6 +10,10 @@ enum Theme {
     /// Quiet tile on top of the page.
     static let surface = Color(.secondarySystemBackground)
     static let hairline = Color(.separator).opacity(0.5)
+    /// Neutral accent for buttons, rings and icons: black in light mode, white in dark mode.
+    static let accent = Color.primary
+    /// Text on an accent-filled button.
+    static let onAccent = Color(.systemBackground)
 
     static func scoreFont(size: CGFloat) -> Font {
         .system(size: size, weight: .bold, design: .rounded).monospacedDigit()

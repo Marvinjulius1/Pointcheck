@@ -56,7 +56,7 @@ struct LevelBadge: View {
         Text(level.formatted(.number.precision(.fractionLength(1))))
             .font(Theme.scoreFont(size: size * 0.36))
             .frame(width: size, height: size)
-            .glassEffect(.regular.tint(Theme.me.opacity(0.45)), in: .circle)
+            .background(Theme.surface, in: .circle)
     }
 }
 
@@ -101,15 +101,17 @@ struct RatingView: View {
             }
 
             if report.history.count > 1 {
+                // Green while improving, red while falling (first vs. last value).
+                let trend = (report.history.last?.rating ?? 0) >= (report.history.first?.rating ?? 0) ? Theme.me : Theme.opponent
                 Section("Verlauf") {
                     Chart(report.history) { point in
                         LineMark(x: .value("Datum", point.date), y: .value("Punkte", point.rating))
                             .interpolationMethod(.monotone)
-                            .foregroundStyle(Theme.me)
+                            .foregroundStyle(trend)
                         AreaMark(x: .value("Datum", point.date), y: .value("Punkte", point.rating))
                             .interpolationMethod(.monotone)
                             .foregroundStyle(LinearGradient(
-                                colors: [Theme.me.opacity(0.3), .clear],
+                                colors: [trend.opacity(0.3), .clear],
                                 startPoint: .top,
                                 endPoint: .bottom
                             ))
@@ -140,7 +142,7 @@ struct RatingView: View {
                             Text("\(Int(player.rating.rounded()))")
                                 .font(Theme.scoreFont(size: 17))
                         }
-                        .listRowBackground(player.isMe ? Theme.me.opacity(0.12) : nil)
+                        .listRowBackground(player.isMe ? Theme.surface : nil)
                     }
                 } header: {
                     Text("Dein Kreis")

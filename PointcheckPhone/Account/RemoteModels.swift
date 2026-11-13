@@ -64,7 +64,7 @@ enum FollowRelation: String, Codable {
 
 /// A compact person row as returned by the list functions (followers, following,
 /// requests, search, suggestions). Optional fields depend on the function.
-struct PersonRow: Decodable, Identifiable, Equatable {
+struct PersonRow: Codable, Identifiable, Equatable {
     var profileID: UUID
     var displayName: String
     var username: String?
