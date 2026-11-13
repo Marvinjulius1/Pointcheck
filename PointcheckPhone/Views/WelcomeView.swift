@@ -10,9 +10,15 @@ struct WelcomeView: View {
     @State private var isWorking = false
     @State private var errorText: String?
     @State private var appeared = false
+    @State private var mode: Mode = .signIn
     @FocusState private var focus: Field?
 
     private enum Field { case name, email, code }
+
+    private enum Mode: String, CaseIterable, Identifiable {
+        case signIn = "Anmelden", register = "Registrieren"
+        var id: Self { self }
+    }
 
     private var awaitingCode: String? {
         if case .awaitingCode(let email) = account.state { return email }
@@ -110,8 +116,10 @@ struct WelcomeView: View {
 
     private var signInStep: some View {
         VStack(spacing: 14) {
+            modePicker
+
             VStack(alignment: .leading, spacing: 4) {
-                Text("Los geht's")
+                Text(mode == .register ? "Konto erstellen" : "Willkommen zurück")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
                 Text("Kein Passwort. Du bekommst einen Code per E-Mail.")
@@ -120,10 +128,13 @@ struct WelcomeView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            field("Dein Name", text: $name, symbol: "person", focused: .name)
-                .textContentType(.name)
-                .submitLabel(.next)
-                .onSubmit { focus = .email }
+            if mode == .register {
+                field("Dein Name", text: $name, symbol: "person", focused: .name)
+                    .textContentType(.name)
+                    .submitLabel(.next)
+                    .onSubmit { focus = .email }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
             field("E-Mail-Adresse", text: $email, symbol: "envelope", focused: .email)
                 .textContentType(.emailAddress)
                 .keyboardType(.emailAddress)
@@ -136,10 +147,49 @@ struct WelcomeView: View {
                 errorLabel(errorText)
             }
 
-            primaryButton("Code senden", enabled: email.contains("@") && email.contains(".")) {
+            primaryButton(mode == .register ? "Registrieren" : "Anmelden", enabled: canSend) {
                 Task { await sendCode() }
             }
+
+            Button(mode == .register ? "Schon ein Konto? Anmelden" : "Neu hier? Konto erstellen") {
+                withAnimation(.snappy) { mode = mode == .register ? .signIn : .register }
+                errorText = nil
+            }
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(.white.opacity(0.8))
         }
+        .animation(.snappy, value: mode)
+    }
+
+    private var canSend: Bool {
+        let validEmail = email.contains("@") && email.contains(".")
+        return mode == .register ? validEmail && !name.trimmingCharacters(in: .whitespaces).isEmpty : validEmail
+    }
+
+    /// "Anmelden | Registrieren" switch in the card's own style.
+    private var modePicker: some View {
+        HStack(spacing: 4) {
+            ForEach(Mode.allCases) { value in
+                let selected = value == mode
+                Button {
+                    withAnimation(.snappy) { mode = value }
+                    errorText = nil
+                } label: {
+                    Text(value.rawValue)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selected ? .black : .white.opacity(0.8))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background { if selected { Capsule().fill(Theme.ball.gradient) } }
+                        .contentShape(.capsule)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(.white.opacity(0.1), in: .capsule)
+        .sensoryFeedback(.selection, trigger: mode)
     }
 
     private func codeStep(email: String) -> some View {
@@ -249,8 +299,10 @@ struct WelcomeView: View {
         focus = nil
         defer { isWorking = false }
         do {
-            try await account.sendCode(email: email, displayName: name)
+            try await account.sendCode(email: email, displayName: name, createAccount: mode == .register)
             code = ""
+        } catch let error as AccountService.SignInError {
+            errorText = error.localizedDescription
         } catch {
             errorText = "Der Code konnte nicht gesendet werden. Prüf die Adresse und versuch es in ein paar Minuten erneut."
         }

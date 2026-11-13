@@ -79,14 +79,40 @@ final class AccountService {
 
     // MARK: - Sign in with an e-mail code
 
-    func sendCode(email: String, displayName: String) async throws {
+    enum SignInError: LocalizedError {
+        case noAccount
+        case alreadyRegistered
+
+        var errorDescription: String? {
+            switch self {
+            case .noAccount: "Zu dieser E-Mail-Adresse gibt es noch kein Konto. Wechsle zu „Registrieren“."
+            case .alreadyRegistered: "Zu dieser E-Mail-Adresse gibt es schon ein Konto. Wechsle zu „Anmelden“."
+            }
+        }
+    }
+
+    /// Sends the sign-in code. `createAccount` = Registrieren (new account with name);
+    /// otherwise only existing accounts receive a code.
+    func sendCode(email: String, displayName: String, createAccount: Bool) async throws {
         let address = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        try await client.auth.signInWithOTP(
-            email: address,
-            redirectTo: Self.loginRedirect,
-            data: name.isEmpty ? nil : ["display_name": .string(name)]
-        )
+        do {
+            try await client.auth.signInWithOTP(
+                email: address,
+                redirectTo: Self.loginRedirect,
+                shouldCreateUser: createAccount,
+                data: createAccount && !name.isEmpty ? ["display_name": .string(name)] : nil
+            )
+        } catch let error as AuthError {
+            // Supabase answers "Signups not allowed for otp" when the address is unknown
+            // and no account may be created.
+            let unknownAddress = [.otpDisabled, .signupDisabled, .userNotFound].contains(error.errorCode)
+                || error.message.localizedCaseInsensitiveContains("signups not allowed")
+            if !createAccount, unknownAddress {
+                throw SignInError.noAccount
+            }
+            throw error
+        }
         state = .awaitingCode(email: address)
     }
 
