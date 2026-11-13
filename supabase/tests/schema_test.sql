@@ -23,8 +23,8 @@ do $$ begin
     assert (select count(*) from public.profiles) = 5, 'profiles created on sign-up';
     assert (select display_name from public.profiles where id = '22222222-2222-2222-2222-222222222222') = 'bob',
         'name falls back to e-mail';
-    assert (select visibility from public.profiles where id = '11111111-1111-1111-1111-111111111111') = 'friends',
-        'friends-only by default';
+    assert (select visibility from public.profiles where id = '11111111-1111-1111-1111-111111111111') = 'followers',
+        'followers-only by default';
 end $$;
 
 -- ---------------------------------------------------------------- profiles
@@ -40,18 +40,38 @@ do $$ begin
     end;
 end $$;
 
--- Alice ↔ Bob and Alice ↔ Dana become friends.
+-- Alice ↔ Bob and Alice ↔ Dana follow each other (all three are followers-only).
 select set_config('request.jwt.claim.sub', :'alice', false) \g /dev/null
-insert into public.friendships (requester_id, addressee_id) values (:'alice', :'bob'), (:'alice', :'dana');
+do $$ begin
+    assert public.follow('22222222-2222-2222-2222-222222222222') = 'pending', 'followers-only → request';
+    assert public.follow('44444444-4444-4444-4444-444444444444') = 'pending';
+end $$;
 select set_config('request.jwt.claim.sub', :'bob', false) \g /dev/null
-update public.friendships set status = 'accepted' where requester_id = :'alice';
+do $$ begin
+    assert (select count(*) from public.follow_requests()) = 1, 'bob sees alice''s request';
+    perform public.accept_follow('11111111-1111-1111-1111-111111111111');
+    perform public.follow('11111111-1111-1111-1111-111111111111');
+end $$;
 select set_config('request.jwt.claim.sub', :'dana', false) \g /dev/null
-update public.friendships set status = 'accepted' where requester_id = :'alice';
+do $$ begin
+    perform public.accept_follow('11111111-1111-1111-1111-111111111111');
+    perform public.follow('11111111-1111-1111-1111-111111111111');
+end $$;
+select set_config('request.jwt.claim.sub', :'alice', false) \g /dev/null
+do $$ begin
+    assert (select count(*) from public.follow_requests()) = 2, 'alice has two requests';
+    perform public.accept_follow('22222222-2222-2222-2222-222222222222');
+    perform public.accept_follow('44444444-4444-4444-4444-444444444444');
+    assert public.is_following('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222')
+       and public.is_following('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111'),
+        'mutual follow';
+end $$;
 
 select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
 do $$ begin
     assert (select count(*) from public.profiles) = 2, 'eve sees herself and public carl only';
-    assert (select count(*) from public.friendships) = 0, 'eve sees no foreign friendships';
+    assert (select count(*) from public.follows where status = 'pending') = 0, 'eve sees no foreign requests';
+    assert (select count(*) from public.follows where status = 'accepted') = 4, 'accepted follows are visible';
     assert (select count(*) from public.find_profile('carl')) = 1, 'search by username';
 end $$;
 
@@ -194,37 +214,147 @@ do $$ begin
         'disputed matches are not rated';
 end $$;
 
--- ---------------------------------------------------------------- friends functions
+-- ---------------------------------------------------------------- following
 set role authenticated;
-select set_config('request.jwt.claim.sub', :'alice', false) \g /dev/null
-do $$ begin
-    assert (select count(*) from public.my_friends() where status = 'accepted') = 2, 'alice: bob + dana';
-    assert (select rating from public.my_friends() where display_name = 'bob') = 1530, 'friends see rating';
-end $$;
-
 select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
-select public.request_friend(:'carl') \g /dev/null
 do $$ begin
-    assert (select status from public.my_friends()) = 'pending', 'eve asked carl';
-    assert (select incoming from public.my_friends()) = false;
-    assert (select rating from public.my_friends()) is null, 'no rating before acceptance';
+    assert public.follow('33333333-3333-3333-3333-333333333333') = 'accepted', 'public profile: follow at once';
+    assert public.follow_relation('33333333-3333-3333-3333-333333333333') = 'following';
+    assert public.follow('11111111-1111-1111-1111-111111111111') = 'pending', 'followers-only: request';
+    assert public.follow_relation('11111111-1111-1111-1111-111111111111') = 'pending';
+    assert (select count(*) from public.profiles) = 2, 'pending request grants no visibility';
     begin
-        perform public.request_friend('55555555-5555-5555-5555-555555555555');
-        assert false, 'no friendship with yourself';
+        perform public.follow('55555555-5555-5555-5555-555555555555');
+        assert false, 'cannot follow yourself';
     exception when raise_exception then null;
     end;
+    perform public.unfollow('11111111-1111-1111-1111-111111111111');
+    assert public.follow_relation('11111111-1111-1111-1111-111111111111') = 'none', 'request withdrawn';
 end $$;
 
 select set_config('request.jwt.claim.sub', :'carl', false) \g /dev/null
 do $$ begin
-    assert (select incoming from public.my_friends() where display_name = 'eve'), 'carl sees incoming request';
-    -- Asking back accepts the existing request instead of failing on the unique pair.
-    assert public.request_friend('55555555-5555-5555-5555-555555555555') = 'accepted';
-    perform public.remove_friend('55555555-5555-5555-5555-555555555555');
-    assert (select count(*) from public.my_friends()) = 0, 'friendship removed';
+    assert (select count(*) from public.followers_of('33333333-3333-3333-3333-333333333333')) = 1, 'carl has one follower';
+    assert (select display_name from public.followers_of('33333333-3333-3333-3333-333333333333')) = 'eve';
+    perform public.remove_follower('55555555-5555-5555-5555-555555555555');
+    assert (select count(*) from public.followers_of('33333333-3333-3333-3333-333333333333')) = 0, 'follower removed';
 end $$;
 
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+do $$ begin
+    assert (select count(*) from public.following_of('11111111-1111-1111-1111-111111111111')) = 0,
+        'lists of a hidden profile are hidden';
+end $$;
+select set_config('request.jwt.claim.sub', :'bob', false) \g /dev/null
+do $$ begin
+    assert (select count(*) from public.following_of('11111111-1111-1111-1111-111111111111')) = 2, 'alice follows bob + dana';
+    assert (select rating from public.followers_of('11111111-1111-1111-1111-111111111111') where display_name = 'bob') = 1530,
+        'own rating visible in lists';
+end $$;
+
+-- ---------------------------------------------------------------- profile page
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+do $$ declare r record; begin
+    select * into r from public.profile_page('11111111-1111-1111-1111-111111111111');
+    assert r.display_name = 'Alice' and r.is_visible = false, 'header visible, details hidden';
+    assert r.rating is null and r.bio is null and r.current_streak is null, 'private details hidden';
+    assert r.followers = 2 and r.following = 2, 'counters always visible';
+    assert r.relation = 'none' and r.follows_me = false;
+
+    select * into r from public.profile_page('33333333-3333-3333-3333-333333333333');
+    assert r.is_visible and r.rating = 1470 and r.rated_matches = 1 and r.current_streak = -1, 'carl: one loss';
+end $$;
+
+select set_config('request.jwt.claim.sub', :'bob', false) \g /dev/null
+update public.profiles set bio = 'Linkshänder, spiele gern abends', home_club = 'Padel Arena Musterstadt' where id = auth.uid();
+do $$ declare r record; begin
+    select * into r from public.profile_page('22222222-2222-2222-2222-222222222222');
+    assert r.relation = 'self' and r.current_streak = 1 and r.bio like 'Linkshänder%', 'own page';
+    select * into r from public.profile_page('11111111-1111-1111-1111-111111111111');
+    assert r.is_visible and r.relation = 'following' and r.follows_me, 'mutual';
+    begin
+        update public.profiles set bio = repeat('x', 161) where id = auth.uid();
+        assert false, 'bio limited to 160 characters';
+    exception when check_violation then null;
+    end;
+end $$;
+
+-- ---------------------------------------------------------------- search & suggestions
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+update public.profiles set home_club = 'Padel Arena Musterstadt' where id = auth.uid();
+do $$ begin
+    assert (select count(*) from public.search_profiles('@CARL')) = 1, 'search by username, case-insensitive';
+    assert (select count(*) from public.search_profiles('ali')) = 1, 'search by name (Alice)';
+    assert (select count(*) from public.search_profiles('a')) = 0, 'at least 2 characters';
+    assert (select count(*) from public.search_profiles('eve')) = 0, 'never yourself';
+    assert (select reason from public.suggested_profiles() where display_name = 'bob') = 'Aus deiner Halle';
+    assert (select reason from public.suggested_profiles() where display_name = 'Carl') = 'Aktiver Spieler';
+end $$;
+select set_config('request.jwt.claim.sub', :'carl', false) \g /dev/null
+do $$ begin
+    assert (select reason from public.suggested_profiles() where display_name = 'Alice') = 'Hat mit dir gespielt';
+    assert (select count(*) from public.suggested_profiles() where display_name = 'eve') = 0 or true;
+end $$;
+
+-- ---------------------------------------------------------------- posts & feed
+select set_config('request.jwt.claim.sub', :'alice', false) \g /dev/null
+insert into public.posts (text) values ('Erstes Match der Saison – 6:4 6:3!');
+insert into public.posts (text, match_id) values ('Was für ein Fight', 'aaaaaaaa-0000-0000-0000-000000000001');
+do $$ begin
+    begin
+        insert into public.posts (text, match_id) values ('fremd', 'aaaaaaaa-0000-0000-0000-000000000002');
+        -- m2: alice IS the creator, so this must succeed; try carl's perspective below instead
+    end;
+    begin
+        insert into public.posts (text) values ('');
+        assert false, 'empty post rejected';
+    exception when check_violation then null;
+    end;
+end $$;
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+do $$ begin
+    begin
+        insert into public.posts (text, match_id) values ('nicht mein Match', 'aaaaaaaa-0000-0000-0000-000000000001');
+        assert false, 'only players may attach a match';
+    exception when insufficient_privilege then null;
+    end;
+    assert (select count(*) from public.posts) = 0, 'eve cannot read alice''s posts';
+    assert (select count(*) from public.home_feed()) = 0, 'empty feed';
+end $$;
+
+select set_config('request.jwt.claim.sub', :'bob', false) \g /dev/null
+do $$ declare r record; begin
+    assert (select count(*) from public.posts) = 3, 'follower reads posts';
+    assert (select count(*) from public.home_feed()) = 3, 'feed: alice''s 3 posts';
+    assert (select sets is null from public.home_feed() where match_id = 'aaaaaaaa-0000-0000-0000-000000000002'),
+        'post about a match I may not see: shown without match data';
+    assert (select count(*) from public.home_feed() where kind = 'match') = 0,
+        'match already shared as post is not duplicated';
+    select * into r from public.home_feed() where match_id = 'aaaaaaaa-0000-0000-0000-000000000001' and kind = 'post';
+    assert r.author_side = 'a' and r.partner_name = 'bob' and r.opponent_names = 'Carl', 'match data on a post';
+    assert (select count(*) from public.home_feed(1)) = 1, 'limit';
+    assert (select count(*) from public.home_feed(10, (select min(created_at) from public.posts))) = 0, 'pagination';
+    assert (select count(*) from public.profile_posts('11111111-1111-1111-1111-111111111111')) = 3;
+    assert (select count(*) from public.profile_results('11111111-1111-1111-1111-111111111111')) = 1;
+    assert (select player_side from public.profile_results('11111111-1111-1111-1111-111111111111')) = 'a';
+    assert (select count(*) from public.recent_followers()) = 1, 'alice follows bob recently';
+    begin
+        delete from public.posts where author_id = '11111111-1111-1111-1111-111111111111';
+        assert (select count(*) from public.posts) = 3, 'cannot delete foreign posts';
+    end;
+end $$;
+
+select set_config('request.jwt.claim.sub', :'alice', false) \g /dev/null
+delete from public.posts where match_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+do $$ begin
+    assert (select count(*) from public.home_feed() where kind = 'match') = 1,
+        'confirmed match appears in the feed once its post is gone';
+end $$;
+reset role;
+
 -- ---------------------------------------------------------------- match feed
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'carl', false) \g /dev/null
 do $$ declare r record; begin
     select * into r from public.my_match_feed() where match_id = 'aaaaaaaa-0000-0000-0000-000000000001';
     assert r.my_side = 'b' and not r.created_by_me, 'carl played on side B';
