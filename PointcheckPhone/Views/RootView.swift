@@ -9,8 +9,8 @@ struct AppGate: View {
         ZStack {
             switch account.state {
             case .loading:
-                Color.black.ignoresSafeArea()
-                ProgressView().tint(.white)
+                Color(.systemGroupedBackground).ignoresSafeArea()
+                ProgressView()
             case .signedOut:
                 WelcomeView()
                     .transition(.opacity)
