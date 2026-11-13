@@ -2,30 +2,28 @@ import Charts
 import PadelStats
 import SwiftUI
 
-/// "Konto" tab: sign-in, profile with visibility, open confirmations, leaderboard.
-struct AccountView: View {
+/// Sign-in flow (e-mail code) and the public leaderboard.
+
+/// Shown in the profile tab while signed out / entering the code.
+struct AccountGate<Content: View>: View {
     @Environment(AccountService.self) private var account
+    @ViewBuilder var content: Content
 
     var body: some View {
-        Group {
-            switch account.state {
-            case .loading:
-                ProgressView()
-            case .signedOut:
-                SignInView()
-            case .awaitingCode(let email):
-                CodeEntryView(email: email)
-            case .signedIn:
-                ProfileView()
-            }
+        switch account.state {
+        case .loading:
+            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .signedOut:
+            SignInView()
+        case .awaitingCode(let email):
+            CodeEntryView(email: email)
+        case .signedIn:
+            content
         }
-        .navigationTitle("Konto")
     }
 }
 
-// MARK: - Sign in
-
-private struct SignInView: View {
+struct SignInView: View {
     @Environment(AccountService.self) private var account
     @State private var email = ""
     @State private var name = ""
@@ -88,7 +86,7 @@ private struct SignInView: View {
     }
 }
 
-private struct CodeEntryView: View {
+struct CodeEntryView: View {
     @Environment(AccountService.self) private var account
     let email: String
     @State private var code = ""
@@ -133,216 +131,6 @@ private struct CodeEntryView: View {
 }
 
 // MARK: - Profile
-
-private struct ProfileView: View {
-    @Environment(AccountService.self) private var account
-    @State private var editing = false
-
-    var body: some View {
-        List {
-            if let profile = account.profile {
-                Section {
-                    HStack(spacing: 16) {
-                        LevelBadge(level: profile.level, size: 64)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(profile.displayName).font(.title3.weight(.bold))
-                            Text(profile.username.map { "@\($0)" } ?? "Noch kein Benutzername")
-                                .foregroundStyle(.secondary)
-                            Text("\(Int(profile.rating.rounded())) Punkte · \(profile.ratedMatches) gewertete Matches")
-                                .font(.footnote.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-                }
-
-                if profile.username == nil {
-                    Section {
-                        Label("Leg einen Benutzernamen fest, damit andere dich als Gegner oder Partner eintragen können.",
-                              systemImage: "at")
-                            .font(.subheadline)
-                        Button("Profil bearbeiten") { editing = true }
-                    }
-                }
-
-                Section("Sichtbarkeit") {
-                    LabeledContent("Profil", value: profile.visibility.title)
-                    Text(profile.visibility.explanation)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section {
-                if account.openConfirmations.isEmpty {
-                    Text("Keine offenen Ergebnisse")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(account.openConfirmations) { item in
-                        ConfirmationRow(item: item)
-                    }
-                }
-            } header: {
-                Text("Offene Bestätigungen")
-            } footer: {
-                Text("Ergebnisse, bei denen dich jemand als Gegner eingetragen hat. Erst nach deiner Bestätigung zählen sie für die Spielstärke.")
-            }
-
-            if account.ratingHistory.count > 1 {
-                Section("Spielstärke-Verlauf") {
-                    Chart(account.ratingHistory) { row in
-                        LineMark(x: .value("Datum", row.createdAt), y: .value("Punkte", row.ratingAfter))
-                            .interpolationMethod(.monotone)
-                            .foregroundStyle(Theme.me)
-                    }
-                    .chartYScale(domain: .automatic(includesZero: false))
-                    .frame(height: 160)
-                }
-            }
-
-            Section {
-                Toggle("Neue Matches automatisch eintragen", isOn: Binding(
-                    get: { account.autoUpload },
-                    set: { account.autoUpload = $0 }
-                ))
-            } footer: {
-                Text("Neue Matches von deiner Watch werden hochgeladen, sobald sie auf dem iPhone ankommen. Gegner verlinkst du danach im Match unter „Spielstärke“. Ältere Matches bleiben privat, bis du sie selbst einträgst.")
-            }
-
-            Section {
-                NavigationLink("Öffentliche Rangliste") { LeaderboardView() }
-                Button("Profil bearbeiten") { editing = true }
-                Button("Abmelden", role: .destructive) { Task { await account.signOut() } }
-            }
-        }
-        .refreshable { await account.refresh() }
-        .sheet(isPresented: $editing) {
-            if let profile = account.profile {
-                ProfileEditor(profile: profile)
-            }
-        }
-    }
-}
-
-private struct ConfirmationRow: View {
-    @Environment(AccountService.self) private var account
-    let item: OpenConfirmation
-    @State private var isWorking = false
-    @State private var errorText: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(item.iWon ? "Sieg" : "Niederlage")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(item.iWon ? Theme.me : Theme.opponent)
-                Spacer()
-                Text(item.startedAt.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Text(item.myResultText)
-                .font(Theme.scoreFont(size: 22))
-            Text("Eingetragen von \(item.creatorName)")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            if let errorText {
-                Text(errorText).font(.footnote).foregroundStyle(Theme.opponent)
-            }
-            HStack {
-                Button("Bestätigen") { act { try await account.confirm(item) } }
-                    .buttonStyle(.glassProminent)
-                    .tint(Theme.me)
-                Button("Ablehnen", role: .destructive) { act { try await account.reject(item) } }
-                    .buttonStyle(.glass)
-            }
-            .disabled(isWorking)
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func act(_ work: @escaping () async throws -> Void) {
-        Task {
-            isWorking = true
-            errorText = nil
-            do { try await work() } catch { errorText = "Das hat nicht geklappt. Versuch es noch einmal." }
-            isWorking = false
-        }
-    }
-}
-
-private struct ProfileEditor: View {
-    @Environment(AccountService.self) private var account
-    @Environment(\.dismiss) private var dismiss
-    @State private var displayName: String
-    @State private var username: String
-    @State private var visibility: ProfileVisibility
-    @State private var errorText: String?
-    @State private var isSaving = false
-
-    init(profile: RemoteProfile) {
-        _displayName = State(initialValue: profile.displayName)
-        _username = State(initialValue: profile.username ?? "")
-        _visibility = State(initialValue: profile.visibility)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Name") {
-                    TextField("Anzeigename", text: $displayName)
-                }
-                Section {
-                    TextField("benutzername", text: $username)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                } header: {
-                    Text("Benutzername")
-                } footer: {
-                    Text("Damit tragen dich andere als @\(username.isEmpty ? "benutzername" : username.lowercased()) in Matches ein.")
-                }
-                Section {
-                    Picker("Sichtbarkeit", selection: $visibility) {
-                        ForEach(ProfileVisibility.allCases) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                } header: {
-                    Text("Wer darf dein Profil sehen?")
-                } footer: {
-                    Text(visibility.explanation)
-                }
-                if let errorText {
-                    Section { Text(errorText).foregroundStyle(Theme.opponent) }
-                }
-            }
-            .navigationTitle("Profil")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Sichern") { Task { await save() } }
-                        .disabled(isSaving || displayName.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
-        }
-    }
-
-    private func save() async {
-        isSaving = true
-        errorText = nil
-        defer { isSaving = false }
-        do {
-            try await account.updateProfile(displayName: displayName, username: username, visibility: visibility)
-            dismiss()
-        } catch {
-            errorText = error.localizedDescription
-        }
-    }
-}
-
-// MARK: - Leaderboard
 
 struct LeaderboardView: View {
     @Environment(AccountService.self) private var account

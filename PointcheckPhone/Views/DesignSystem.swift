@@ -164,3 +164,229 @@ struct RangePicker<Value: Hashable & Identifiable>: View {
         .sensoryFeedback(.selection, trigger: selection)
     }
 }
+
+// MARK: - Navigation
+
+/// Follower / following list of a profile.
+struct PeopleListRoute: Hashable {
+    enum Kind: Hashable {
+        case followers, following
+
+        var title: String {
+            switch self {
+            case .followers: "Follower"
+            case .following: "Folge ich"
+            }
+        }
+    }
+
+    let kind: Kind
+    let profileID: UUID
+}
+
+extension View {
+    /// Registers the profile-related destinations. Apply once at the root of each tab's
+    /// NavigationStack (nested registrations would be ignored with a warning).
+    func profileNavigation() -> some View {
+        self
+            .navigationDestination(for: UUID.self) { ProfileView(profileID: $0) }
+            .navigationDestination(for: PeopleListRoute.self) { PeopleListView(route: $0) }
+    }
+}
+
+// MARK: - Social building blocks
+
+/// Profile photo with initial fallback.
+struct ProfilePhoto: View {
+    let name: String
+    var url: URL?
+    var size: CGFloat = 44
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Color.accentColor.gradient)
+            Text(String(name.prefix(1)).uppercased())
+                .font(.system(size: size * 0.42, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+            if let url {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    }
+                }
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(.circle)
+        .accessibilityHidden(true)
+    }
+}
+
+/// "Folgen" / "Folge ich" / "Angefragt" – the relation decides look and action.
+struct FollowButton: View {
+    let profileID: UUID
+    @Binding var relation: FollowRelation
+    var compact = false
+    @Environment(AccountService.self) private var account
+    @State private var isWorking = false
+
+    var body: some View {
+        Button {
+            Task { await toggle() }
+        } label: {
+            HStack(spacing: 6) {
+                if isWorking {
+                    ProgressView().controlSize(.mini)
+                } else if relation == .following {
+                    Image(systemName: "checkmark").font(.caption.weight(.bold))
+                }
+                Text(relation.buttonTitle)
+                    .font(.subheadline.weight(.semibold))
+            }
+            .frame(minWidth: compact ? 0 : 110)
+            .padding(.horizontal, compact ? 12 : 16)
+            .padding(.vertical, 7)
+            .background(background, in: .capsule)
+            .foregroundStyle(relation == .none ? Color.white : Color.primary)
+            .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .disabled(isWorking || relation == .self)
+        .animation(.snappy, value: relation)
+        .sensoryFeedback(.success, trigger: relation == .following)
+    }
+
+    private var background: AnyShapeStyle {
+        relation == .none ? AnyShapeStyle(Theme.me.gradient) : AnyShapeStyle(Color(.tertiarySystemFill))
+    }
+
+    private func toggle() async {
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            switch relation {
+            case .none:
+                relation = try await account.follow(profileID)
+            case .following, .pending:
+                try await account.unfollow(profileID)
+                relation = .none
+            case .self:
+                break
+            }
+        } catch {
+            // keep the old state
+        }
+    }
+}
+
+/// One person in a list (followers, search, suggestions), with photo and optional button.
+struct PersonListRow: View {
+    let person: PersonRow
+    var subtitle: String?
+    var showsFollowButton = true
+    @Environment(AccountService.self) private var account
+    @State private var relation: FollowRelation
+
+    init(person: PersonRow, subtitle: String? = nil, showsFollowButton: Bool = true) {
+        self.person = person
+        self.subtitle = subtitle
+        self.showsFollowButton = showsFollowButton
+        _relation = State(initialValue: person.relation ?? .none)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            NavigationLink(value: person.profileID) {
+                HStack(spacing: 12) {
+                    ProfilePhoto(name: person.displayName, url: account.imageURL(person.avatarPath, bucket: .avatars))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(person.displayName)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        if let line = subtitle ?? person.username.map({ "@\($0)" }) {
+                            Text(line)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            if showsFollowButton, relation != .self {
+                FollowButton(profileID: person.profileID, relation: $relation, compact: true)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+}
+
+/// Big empty-state block with icon, title, text and an optional action.
+struct EmptyState: View {
+    let symbol: String
+    let title: String
+    let message: String
+    var actionTitle: String?
+    var action: (() -> Void)?
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 34, weight: .medium))
+                .foregroundStyle(Theme.me)
+                .frame(width: 72, height: 72)
+                .background(Theme.me.opacity(0.12), in: .circle)
+            Text(title)
+                .font(.title3.weight(.bold))
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.glassProminent)
+                    .tint(Theme.me)
+                    .padding(.top, 4)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 32)
+    }
+}
+
+/// Result line "6:4  3:6  [10:8]" with a won/lost dot, used in feed and profile cards.
+struct ResultLine: View {
+    let text: String
+    let won: Bool
+    var size: CGFloat = 22
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(won ? Theme.me : Theme.opponent)
+                .frame(width: 10, height: 10)
+            Text(text)
+                .font(Theme.scoreFont(size: size))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+}
+
+extension Date {
+    /// "vor 5 Min.", "gestern", "3. Nov."
+    var relativeShort: String {
+        let seconds = Date.now.timeIntervalSince(self)
+        if seconds < 60 { return "gerade eben" }
+        if seconds < 3600 { return "vor \(Int(seconds / 60)) Min." }
+        if seconds < 86_400 { return "vor \(Int(seconds / 3600)) Std." }
+        if Calendar.current.isDateInYesterday(self) { return "gestern" }
+        if seconds < 7 * 86_400 { return "vor \(Int(seconds / 86_400)) Tagen" }
+        return formatted(.dateTime.day().month(.abbreviated))
+    }
+}

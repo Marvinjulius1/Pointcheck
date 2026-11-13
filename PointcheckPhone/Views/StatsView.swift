@@ -3,9 +3,8 @@ import PadelStats
 import SwiftData
 import SwiftUI
 
-/// Home screen: playing strength like a portfolio value – big number, change, chart –
-/// followed by calm grouped lists.
-struct OverviewView: View {
+/// Statistics: calm grouped lists for stats, training, activity, partners and rivals.
+struct StatsView: View {
     @Query(sort: \StoredMatch.startDate, order: .reverse) private var stored: [StoredMatch]
     @Environment(WatchSync.self) private var sync
     @Environment(HealthService.self) private var health
@@ -22,13 +21,15 @@ struct OverviewView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        RatingHero(matches: all)
-                            .padding(.bottom, 8)
                         statistics(overview)
                         healthSection
                         activitySection(all)
                         peopleSection(title: "Beste Partner", records: PadelStats.partners(all), mode: .partners)
                         peopleSection(title: "Rivalen", records: PadelStats.rivals(all), mode: .rivals)
+                        Text("Partner und Gegner stammen aus den Namen, die du auf der Watch eingetragen hast.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 24)
@@ -36,8 +37,7 @@ struct OverviewView: View {
                 .background(Color(.systemGroupedBackground))
             }
         }
-        .navigationTitle("Übersicht")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Statistik")
         .refreshable {
             sync.requestAll()
             await account.refresh()
@@ -183,11 +183,11 @@ struct OverviewView: View {
     // MARK: People
 
     @ViewBuilder
-    private func peopleSection(title: String, records: [PersonRecord], mode: PeopleView.Mode) -> some View {
+    private func peopleSection(title: String, records: [PersonRecord], mode: PartnersRivalsView.Mode) -> some View {
         if !records.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 SectionTitle(title) {
-                    NavigationLink("Alle") { PeopleView(initialMode: mode) }
+                    NavigationLink("Alle") { PartnersRivalsView(initialMode: mode) }
                 }
                 Card {
                     ForEach(Array(records.prefix(3).enumerated()), id: \.element.id) { index, record in
@@ -205,7 +205,7 @@ struct OverviewView: View {
 // MARK: - Hero
 
 /// Big rating number with change and an interactive line chart (drag to see past values).
-private struct RatingHero: View {
+struct RatingHero: View {
     let matches: [MatchSummary]
     @Environment(AccountService.self) private var account
     @State private var range: RatingRange = .threeMonths
@@ -339,5 +339,82 @@ private struct RatingHero: View {
         let high = values.max() ?? 1500
         let padding = max((high - low) * 0.25, 10)
         return (low - padding)...(high + padding)
+    }
+}
+
+// MARK: - Partners & rivals
+
+struct PartnersRivalsView: View {
+    enum Mode: String, CaseIterable, Identifiable {
+        case partners = "Partner"
+        case rivals = "Rivalen"
+        var id: Self { self }
+    }
+
+    @Query(sort: \StoredMatch.startDate, order: .reverse) private var stored: [StoredMatch]
+    @Environment(AccountService.self) private var account
+    @State private var mode: Mode
+
+    init(initialMode: Mode = .partners) {
+        _mode = State(initialValue: initialMode)
+    }
+
+    private var records: [PersonRecord] {
+        let matches = account.allMatches(local: stored.map(\.summary))
+        return mode == .partners ? PadelStats.partners(matches) : PadelStats.rivals(matches)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                Picker("Ansicht", selection: $mode) {
+                    ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                if records.isEmpty {
+                    EmptyState(symbol: mode == .partners ? "person.2" : "flag.2.crossed",
+                               title: mode == .partners ? "Keine Partner eingetragen" : "Keine Gegner eingetragen",
+                               message: "Trag Namen auf der Watch im Verlauf unter dem jeweiligen Match ein.")
+                } else {
+                    Card {
+                        ForEach(Array(records.enumerated()), id: \.element.id) { index, record in
+                            if index > 0 { RowDivider(inset: 66) }
+                            PersonRecordRow(record: record)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle(mode.rawValue)
+    }
+}
+
+struct PersonRecordRow: View {
+    let record: PersonRecord
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProfilePhoto(name: record.name, size: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(record.name).font(.body.weight(.semibold))
+                Text("\(record.wins) Siege · \(record.losses) Niederlagen")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(record.winRate.percentText)
+                    .font(.body.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(record.winRate >= 0.5 ? Theme.me : Theme.opponent)
+                Text("\(record.wins):\(record.losses)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }

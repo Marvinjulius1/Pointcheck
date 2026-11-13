@@ -48,6 +48,15 @@ Hallen und Clubs bekommen später eine Web-Ansicht.
 - ✅ Übersicht im Finanz-App-Stil: Spielstärke wie ein Depotwert mit Verlauf (1W–Max)
 - **Gegner suchen** (ähnliche Spielstärke, in der Nähe)
 
+### Redesign & Social (13.11.)
+- ✅ Neue Tab-Leiste: **Home** (Spielstärke + Feed), **Matches**, **Suche**, **Aktivität**, **Profil**
+- ✅ Folgen statt Freunde (einseitig, wie Instagram); private Profile bestätigen Anfragen
+- ✅ Profilseite mit Foto, Bio, Heimat-Halle, Zählern (Beiträge · Follower · Folge ich), Level, Siegquote, Serie; Tabs Ergebnisse / Beiträge / Erfolge
+- ✅ Beiträge mit Text, Foto und angehängtem Ergebnis; Feed mit Pagination
+- ✅ Suche per Name oder @benutzername, Vorschläge; Aktivität mit Folge-Anfragen, neuen Followern und offenen Bestätigungen
+- ✅ Einheitliche Bausteine (Karten, Avatare, Folgen-Button, leere Zustände) statt Einstellungs-Listen
+- Offen: Push-Mitteilungen (Developer-Programm), Beiträge liken/kommentieren
+
 ## Phase 4 – Hallen & Clubs (Business)
 *Web-Dashboard für Betreiber, Abo-Modell.*
 

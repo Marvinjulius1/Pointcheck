@@ -21,7 +21,7 @@ struct OnlineMatchSection: View {
                     .font(.subheadline)
                     .foregroundStyle(Theme.me)
             } else if account.state != .signedIn {
-                Label("Melde dich im Tab „Konto“ an, um das Match bestätigen zu lassen.", systemImage: "person.crop.circle")
+                Label("Melde dich im Tab „Profil“ an, um das Match bestätigen zu lassen.", systemImage: "person.crop.circle")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else if !match.isDecided {

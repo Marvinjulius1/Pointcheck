@@ -25,26 +25,40 @@ struct MatchesView: View {
 
     var body: some View {
         let groups = monthGroups
-        Group {
+        ScrollView {
             if groups.isEmpty {
                 NoMatchesView()
             } else {
-                List {
+                LazyVStack(alignment: .leading, spacing: 14) {
                     ForEach(groups) { group in
-                        Section(group.month.formatted(.dateTime.month(.wide).year())) {
-                            ForEach(group.matches) { match in
+                        SectionTitle(group.month.formatted(.dateTime.month(.wide).year())) {
+                            let wins = group.matches.filter { $0.winner == .me }.count
+                            let losses = group.matches.filter { $0.winner == .opponent }.count
+                            Text("\(wins) S · \(losses) N").foregroundStyle(.secondary).monospacedDigit()
+                        }
+                        Card {
+                            ForEach(Array(group.matches.enumerated()), id: \.element.id) { index, match in
+                                if index > 0 { RowDivider(inset: 68) }
                                 NavigationLink {
                                     MatchDetailView(match: match)
                                 } label: {
                                     MatchRow(match: match, isFromCoPlayer: account.foreignIDs.contains(match.id))
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .contentShape(.rect)
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
                 }
+                .padding(.horizontal)
+                .padding(.bottom, 24)
             }
         }
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("Matches")
+        .profileNavigation()
         .refreshable {
             sync.requestAll()
             await account.refresh()
@@ -117,6 +131,8 @@ struct ResultIcon: View {
 struct MatchDetailView: View {
     let match: MatchSummary
     @Environment(HealthService.self) private var health
+    @Environment(AccountService.self) private var account
+    @State private var showsComposer = false
 
     private var workout: WorkoutMetrics? { health.metrics[match.id] }
 
@@ -185,11 +201,19 @@ struct MatchDetailView: View {
             OnlineMatchSection(match: match)
 
             Section {
+                if account.state == .signedIn {
+                    Button {
+                        showsComposer = true
+                    } label: {
+                        Label("Als Beitrag teilen", systemImage: "square.and.pencil")
+                    }
+                }
                 ShareResultButton(match: match, workout: workout)
             } footer: {
                 Text("Namen änderst du auf der Watch im Verlauf. Die Änderung erscheint dann automatisch hier.")
             }
         }
+        .sheet(isPresented: $showsComposer) { PostComposer(match: match) }
         .navigationTitle(match.title)
         .navigationBarTitleDisplayMode(.inline)
     }

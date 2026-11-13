@@ -11,7 +11,7 @@ Pointcheck/
 ├── project.yml                     # XcodeGen-Definition → erzeugt Pointcheck.xcodeproj
 ├── docs/ROADMAP.md                 # Phasenplan (Watch → iPhone → Plattform → Hallen)
 ├── PointcheckWidget/               # Complication fürs Zifferblatt
-├── PointcheckPhone/                # iPhone-App: Übersicht, Matches, Partner/Rivalen, Erfolge, Teilen
+├── PointcheckPhone/                # iPhone-App: Home/Feed, Matches, Suche, Aktivität, Profil (Supabase)
 ├── Packages/PadelScoring/          # Zähllogik als Swift Package (ohne UI)
 │   ├── Sources/PadelScoring/
 │   │   ├── Team.swift              # Team (.me / .opponent), TeamScore

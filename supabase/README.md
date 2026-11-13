@@ -15,14 +15,19 @@ Matches mit Bestätigung durch den Gegner und die Spielstärke-Berechnung auf de
 | `open_confirmations` | Ergebnisse, die ich als verlinkter Gegner noch bestätigen muss |
 | `confirm_match` / `dispute_match` | Ergebnis in der App bestätigen bzw. ablehnen |
 | `find_profile(username)` | Spieler finden, um ihn im Match zu verlinken oder als Freund hinzuzufügen |
-| `my_friends()`, `request_friend`, `accept_friend`, `remove_friend` | Freundesliste mit Namen, Anfragen senden/annehmen/entfernen |
+| `follows` | Folgen wie bei Instagram: `follow`, `unfollow`, `accept_follow`, `remove_follower`, `followers_of`, `following_of`, `follow_requests` |
+| `profile_page(id)` | Alles für die Profilseite: Foto, Bio, Heimat-Halle, Zähler, Spielstärke, Serie |
+| `search_profiles(text)`, `suggested_profiles()` | Spielersuche und Vorschläge („Hat mit dir gespielt“, „Aus deiner Halle“) |
+| `posts`, `home_feed`, `profile_posts`, `profile_results` | Beiträge (Text, Bild, Match) und der Feed der Leute, denen ich folge |
+| Storage `avatars`, `posts` | Profilfotos und Beitragsbilder; nur der eigene Ordner ist beschreibbar |
 | `my_match_feed()` | Alle Matches, in denen ich spiele – aus meiner Sicht, mit Namen der Mitspieler |
 
 **Sicherheitsregeln (Row Level Security):**
-- Private Profile sehen nur Freunde.
+- Profile sind „Öffentlich“ oder „Privat“ (nur bestätigte Follower). Folgen eines öffentlichen Profils gilt sofort, bei privaten muss die Anfrage angenommen werden.
 - Ein Match sieht man als Teilnehmer, sonst nur, wenn es bestätigt ist **und** alle Spieler darin für einen sichtbar sind.
 - Spielstärke und Bestätigungen lassen sich nicht direkt ändern, nur über die Server-Funktionen.
 - Gewertet wird ein Match genau einmal, sobald ein Gegner bestätigt. Abgelehnte Matches werden nie gewertet.
+- Alte Freundschaften wurden in gegenseitiges Folgen übernommen.
 - Der Ersteller verlinkt Partner und Gegner über ihren Benutzernamen. Der Gegner sieht das Ergebnis
   in seiner App unter „Offene Bestätigungen“ und bestätigt oder lehnt ab. Erst dann zählt es.
 
@@ -33,7 +38,8 @@ Matches mit Bestätigung durch den Gegner und die Spielstärke-Berechnung auf de
 3. **Nur falls schon ein früherer Stand eingespielt wurde** (Fehler wie `type "profile_visibility" already exists`):
    den Inhalt von `reset.sql` einfügen und auf **Run** klicken. ⚠️ Das löscht alle Pointcheck-Daten.
 4. Alle Dateien aus `migrations/` **der Reihe nach** (nach Dateiname sortiert) einfügen und jeweils auf **Run** klicken.
-   Später hinzukommende Migrationen werden genauso nachträglich ausgeführt – jede nur einmal.
+   Alle Migrationen ab dem 11.11. sind so geschrieben, dass ein versehentlicher zweiter Lauf nichts kaputtmacht.
+   Die Datei `…_storage.sql` legt die Bild-Buckets an; sie läuft nur in Supabase (nicht lokal).
 5. Unter **Authentication → Providers → Email** die Anmeldung per E-Mail aktiv lassen.
    „Mit Apple anmelden“ kommt später mit dem Apple Developer Program dazu.
 6. Die App meldet per **6-stelligem Code** an (kein Link). Dafür unter **Authentication → Emails** (Templates)

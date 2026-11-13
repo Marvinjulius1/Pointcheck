@@ -1,0 +1,54 @@
+import SwiftUI
+
+/// App settings: upload, Health, account.
+struct SettingsView: View {
+    @Environment(AccountService.self) private var account
+    @Environment(HealthService.self) private var health
+    @Environment(WatchSync.self) private var sync
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmSignOut = false
+
+    var body: some View {
+        List {
+            Section {
+                Toggle("Neue Matches automatisch eintragen", isOn: Binding(
+                    get: { account.autoUpload },
+                    set: { account.autoUpload = $0 }
+                ))
+            } header: {
+                Text("Matches")
+            } footer: {
+                Text("Neue Matches von deiner Watch werden hochgeladen, sobald sie auf dem iPhone ankommen. Gegner verlinkst du danach im Match unter „Spielstärke“.")
+            }
+
+            Section {
+                if health.isAvailable && !health.hasRequestedAccess {
+                    Button("Mit Health verbinden") { Task { await health.requestAccess() } }
+                } else {
+                    LabeledContent("Health", value: health.isAvailable ? "Verbunden" : "Nicht verfügbar")
+                }
+                Button("Verlauf von der Watch laden") { sync.requestAll() }
+                    .disabled(!sync.isWatchAppInstalled)
+            } header: {
+                Text("Daten")
+            }
+
+            Section {
+                NavigationLink("Öffentliche Rangliste") { LeaderboardView() }
+            }
+
+            Section {
+                Button("Abmelden", role: .destructive) { confirmSignOut = true }
+            } footer: {
+                Text("Deine Matches bleiben auf Watch und iPhone erhalten.")
+            }
+        }
+        .navigationTitle("Einstellungen")
+        .confirmationDialog("Abmelden?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Abmelden", role: .destructive) {
+                Task { await account.signOut(); dismiss() }
+            }
+            Button("Abbrechen", role: .cancel) {}
+        }
+    }
+}

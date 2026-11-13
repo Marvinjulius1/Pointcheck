@@ -2,33 +2,43 @@ import PadelStats
 import SwiftData
 import SwiftUI
 
-struct BadgesView: View {
+/// Achievements grid, shown inside the profile's "Erfolge" tab.
+struct BadgesGrid: View {
     @Query private var stored: [StoredMatch]
     @Environment(AccountService.self) private var account
 
     var body: some View {
         let badges = PadelStats.badges(account.allMatches(local: stored.map(\.summary)))
         let unlocked = badges.filter(\.isUnlocked).count
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("\(unlocked) von \(badges.count)")
-                        .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
-                    ProgressView(value: Double(unlocked), total: Double(max(badges.count, 1)))
-                        .tint(Theme.me)
-                    Text("Erfolge freigeschaltet")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 14) {
+            Card {
+                HStack(spacing: 16) {
+                    ZStack {
+                        Circle().stroke(Color(.tertiarySystemFill), lineWidth: 7)
+                        Circle()
+                            .trim(from: 0, to: Double(unlocked) / Double(max(badges.count, 1)))
+                            .stroke(Theme.me.gradient, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                            .animation(.smooth, value: unlocked)
+                        Text("\(unlocked)")
+                            .font(.system(size: 22, weight: .bold, design: .rounded).monospacedDigit())
+                    }
+                    .frame(width: 64, height: 64)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(unlocked) von \(badges.count) Erfolgen")
+                            .font(.headline)
+                        Text(unlocked == badges.count ? "Alles freigeschaltet. Stark!" : "Spiel weiter – der nächste Erfolg wartet.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
                 }
-                .padding(.vertical, 8)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
-                    ForEach(badges) { BadgeTile(badge: $0) }
-                }
+                .padding(16)
             }
-            .padding()
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(badges) { BadgeTile(badge: $0) }
+            }
         }
-        .background(Color(.systemGroupedBackground))
-        .navigationTitle("Erfolge")
     }
 }
 
@@ -38,13 +48,14 @@ private struct BadgeTile: View {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: badge.symbol)
-                .font(.system(size: 28, weight: .semibold))
+                .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(badge.isUnlocked ? AnyShapeStyle(Color.white) : AnyShapeStyle(HierarchicalShapeStyle.secondary))
-                .frame(width: 64, height: 64)
+                .frame(width: 58, height: 58)
                 .background(badge.isUnlocked ? AnyShapeStyle(Theme.me.gradient) : AnyShapeStyle(Color(.tertiarySystemFill)), in: .circle)
                 .symbolEffect(.bounce, value: badge.isUnlocked)
             Text(badge.title)
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
+                .multilineTextAlignment(.center)
             Text(badge.detail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -59,7 +70,7 @@ private struct BadgeTile: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding()
+        .padding(14)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 22, style: .continuous))
         .accessibilityElement(children: .combine)
     }
