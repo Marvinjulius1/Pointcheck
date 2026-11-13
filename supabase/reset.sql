@@ -7,6 +7,13 @@ drop trigger if exists on_auth_user_created on auth.users;
 drop view if exists public.open_confirmations;
 drop view if exists public.leaderboard;
 
+drop view if exists public.campaign_stats;
+drop table if exists public.ad_events cascade;
+drop table if exists public.hall_managers cascade;
+drop table if exists public.hall_campaigns cascade;
+drop table if exists public.halls cascade;
+drop table if exists public.posts cascade;
+drop table if exists public.follows cascade;
 drop table if exists public.rating_history cascade;
 drop table if exists public.match_players cascade;
 drop table if exists public.match_claims cascade;

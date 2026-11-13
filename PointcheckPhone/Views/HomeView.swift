@@ -122,14 +122,21 @@ struct HomeView: View {
                        actionTitle: "Beitrag schreiben", action: { showsComposer = true })
                 .padding(.top, 24)
         } else {
-            ForEach(Array(account.feed.enumerated()), id: \.element.id) { index, item in
-                FeedEntry(item: item)
-                    .revealOnAppear(delay: min(Double(index) * 0.05, 0.3))
-                    .onAppear {
-                        if item.id == account.feed.last?.id {
-                            Task { await account.loadMoreFeed() }
-                        }
+            ForEach(Array(account.feedSlots.enumerated()), id: \.element.id) { index, slot in
+                Group {
+                    switch slot {
+                    case .item(let item):
+                        FeedEntry(item: item)
+                            .onAppear {
+                                if item.id == account.feed.last?.id {
+                                    Task { await account.loadMoreFeed() }
+                                }
+                            }
+                    case .ad(let ad):
+                        SponsoredEntry(ad: ad)
                     }
+                }
+                .revealOnAppear(delay: min(Double(index) * 0.05, 0.3))
                 FeedDivider()
             }
             if account.feedHasMore {
@@ -278,6 +285,92 @@ private struct FeedEntry: View {
         case .post: item.createdAt.relativeShort
         case .match: "hat \(item.match?.authorWon == true ? "gewonnen" : "gespielt") · \(item.createdAt.relativeShort)"
         }
+    }
+}
+
+// MARK: - Sponsored hall post
+
+/// A paid hall campaign between the posts. Looks like a post, but is clearly marked
+/// "Gesponsert", names who pays for it and explains why it is shown (EU Digital Services Act).
+private struct SponsoredEntry: View {
+    let ad: SponsoredAd
+    @Environment(AccountService.self) private var account
+    @Environment(\.openURL) private var openURL
+    @State private var showsWhy = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                HallLogo(name: ad.hallName, url: account.imageURL(ad.hallLogo, bucket: .halls), size: 40)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(ad.hallName).font(.subheadline.weight(.semibold))
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Menu {
+                    Button("Warum sehe ich das?", systemImage: "info.circle") { showsWhy = true }
+                } label: {
+                    Image(systemName: "ellipsis").foregroundStyle(.secondary).padding(8)
+                }
+                .accessibilityLabel("Mehr zur Anzeige")
+            }
+            .padding(.horizontal, 16)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(ad.headline).font(.headline)
+                if !ad.body.isEmpty {
+                    Text(ad.body).font(.body).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 16)
+
+            if let url = account.imageURL(ad.imagePath, bucket: .halls) {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    } else {
+                        Theme.surface
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .aspectRatio(4 / 3, contentMode: .fill)
+                .clipped()
+            }
+
+            Button {
+                account.adTapped(ad)
+                openURL(ad.ctaURL)
+            } label: {
+                HStack {
+                    Text(ad.ctaLabel)
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.accent)
+            .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 18)
+        .onAppear { account.adAppeared(ad) }
+        .alert("Warum sehe ich das?", isPresented: $showsWhy) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(whyText)
+        }
+    }
+
+    private var subtitle: String {
+        var parts = ["Gesponsert"]
+        if let km = ad.distanceKm { parts.append(km.distanceText) }
+        return parts.joined(separator: " · ")
+    }
+
+    private var whyText: String {
+        let place = ad.distanceKm.map { "etwa \($0.distanceText) von dir entfernt" } ?? "in deiner Nähe"
+        return "Diese Anzeige bezahlt \(ad.hallName) (\(ad.hallCity)). Du siehst sie, weil die Halle \(place) ist – "
+            + "gemessen an deinem ungefähren Standort oder deiner Heimat-Halle. Pointcheck speichert deinen Standort nicht "
+            + "und nutzt für Anzeigen keine weiteren Daten über dich."
     }
 }
 

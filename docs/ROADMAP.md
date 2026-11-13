@@ -64,3 +64,7 @@ Hallen und Clubs bekommen später eine Web-Ansicht.
 - **Ligen & Turniere** mit automatischem Spielplan und Tabelle
 - **Monats-Challenges** mit Preisen der Halle
 - **Anbindung an Platzbuchungen** (abhängig von den Schnittstellen der Buchungsanbieter)
+- ✅ **Hallen-Verzeichnis**: Heimat-Halle aus einer Liste wählen (Suche nach Name/Stadt/PLZ oder „In meiner Nähe“)
+- ✅ **Hallen-Anzeigen im Feed**: bezahlte Beiträge von Hallen im Umkreis, gekennzeichnet als „Gesponsert“,
+  mit Tageslimit pro Spieler, bezahltem Volumen und Auswertung (Einblendungen, erreichte Spieler, Klicks)
+- Offen: Self-Service für Hallen (Kampagne selbst anlegen und bezahlen) im Web-Dashboard

@@ -629,6 +629,7 @@ struct ProfileEditor: View {
     @State private var username: String
     @State private var bio: String
     @State private var homeClub: String
+    @State private var homeHall: Hall?
     @State private var visibility: ProfileVisibility
     @State private var photoItem: PhotosPickerItem?
     @State private var photoPreview: Image?
@@ -642,7 +643,14 @@ struct ProfileEditor: View {
         _displayName = State(initialValue: profile.displayName)
         _username = State(initialValue: profile.username ?? "")
         _bio = State(initialValue: profile.bio ?? "")
-        _homeClub = State(initialValue: profile.homeClub ?? "")
+        if let hallID = profile.homeHallID {
+            // Only id and name are known here; the picker loads the rest.
+            _homeHall = State(initialValue: Hall(id: hallID, name: profile.homeClub ?? "Heimat-Halle", city: ""))
+            _homeClub = State(initialValue: "")
+        } else {
+            _homeHall = State(initialValue: nil)
+            _homeClub = State(initialValue: profile.homeClub ?? "")
+        }
         _visibility = State(initialValue: profile.visibility)
         avatarPath = profile.avatarPath
         name = profile.displayName
@@ -690,9 +698,22 @@ struct ProfileEditor: View {
                 Section {
                     TextField("Kurz über dich (max. 160 Zeichen)", text: $bio, axis: .vertical)
                         .lineLimit(2...4)
-                    TextField("Heimat-Halle oder Stadt", text: $homeClub)
                 } header: {
                     Text("Über dich")
+                }
+                Section {
+                    NavigationLink {
+                        HallPicker(selection: $homeHall)
+                    } label: {
+                        LabeledContent("Heimat-Halle", value: homeHall?.name ?? "Auswählen")
+                    }
+                    if homeHall == nil {
+                        TextField("Oder deine Stadt", text: $homeClub)
+                    }
+                } header: {
+                    Text("Wo spielst du?")
+                } footer: {
+                    Text("Darüber findest du Spieler aus deiner Halle und siehst Angebote von Hallen in deiner Nähe.")
                 }
                 Section {
                     Picker("Sichtbarkeit", selection: $visibility) {
@@ -738,7 +759,8 @@ struct ProfileEditor: View {
         do {
             if let photoData { try await account.uploadAvatar(photoData) }
             try await account.updateProfile(displayName: displayName, username: username,
-                                            visibility: visibility, bio: bio, homeClub: homeClub)
+                                            visibility: visibility, bio: bio, homeClub: homeClub,
+                                            homeHall: homeHall)
             dismiss()
         } catch {
             errorText = error.localizedDescription

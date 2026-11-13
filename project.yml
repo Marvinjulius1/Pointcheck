@@ -127,6 +127,9 @@ targets:
             CFBundleURLSchemes:
               - pointcheck
         NSHealthShareUsageDescription: Pointcheck zeigt Herzfrequenz und Kalorien deiner Padel-Matches, die deine Apple Watch aufgezeichnet hat.
+        # Rough location only ("Ungefährer Standort"): halls and hall offers nearby.
+        NSLocationWhenInUseUsageDescription: Pointcheck zeigt dir Padel-Hallen und Angebote in deiner Nähe. Dafür reicht der ungefähre Standort, er wird nicht gespeichert.
+        NSLocationDefaultAccuracyReduced: true
     entitlements:
       path: PointcheckPhone/Pointcheck.entitlements
       properties:

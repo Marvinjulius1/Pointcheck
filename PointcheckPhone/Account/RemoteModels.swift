@@ -31,6 +31,7 @@ struct RemoteProfile: Codable, Identifiable, Equatable {
     var avatarPath: String?
     var bio: String?
     var homeClub: String?
+    var homeHallID: UUID?
     var visibility: ProfileVisibility
     var rating: Double
     var ratedMatches: Int
@@ -43,8 +44,88 @@ struct RemoteProfile: Codable, Identifiable, Equatable {
         case displayName = "display_name"
         case avatarPath = "avatar_path"
         case homeClub = "home_club"
+        case homeHallID = "home_hall_id"
         case ratedMatches = "rated_matches"
         case ratedWins = "rated_wins"
+    }
+}
+
+/// A padel hall from `search_halls`.
+struct Hall: Codable, Identifiable, Equatable, Hashable {
+    var id: UUID
+    var name: String
+    var city: String
+    var postalCode: String?
+    var logoPath: String?
+    /// From my rough position or my home hall; `nil` without either.
+    var distanceKm: Double?
+    /// Players with this home hall.
+    var players: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, city, players
+        case postalCode = "postal_code"
+        case logoPath = "logo_path"
+        case distanceKm = "distance_km"
+    }
+}
+
+/// A paid hall campaign shown between feed posts (`feed_ads`).
+struct SponsoredAd: Decodable, Identifiable, Equatable {
+    var campaignID: UUID
+    var hallID: UUID
+    var hallName: String
+    var hallCity: String
+    var hallLogo: String?
+    var headline: String
+    var body: String
+    var imagePath: String?
+    var ctaLabel: String
+    var ctaURL: URL
+    var distanceKm: Double?
+
+    var id: UUID { campaignID }
+
+    enum CodingKeys: String, CodingKey {
+        case headline, body
+        case campaignID = "campaign_id"
+        case hallID = "hall_id"
+        case hallName = "hall_name"
+        case hallCity = "hall_city"
+        case hallLogo = "hall_logo"
+        case imagePath = "image_path"
+        case ctaLabel = "cta_label"
+        case ctaURL = "cta_url"
+        case distanceKm = "distance_km"
+    }
+}
+
+/// The home feed with ads mixed in.
+enum FeedSlot: Identifiable, Equatable {
+    case item(FeedItem)
+    case ad(SponsoredAd)
+
+    var id: String {
+        switch self {
+        case .item(let item): "item-\(item.id)"
+        case .ad(let ad): "ad-\(ad.campaignID)"
+        }
+    }
+
+    /// One ad after the 4th post, then after every 8 posts. A short feed (1–3 posts) gets
+    /// one ad at the end; an empty feed none. Each campaign appears at most once.
+    static func mix(_ items: [FeedItem], ads: [SponsoredAd], firstAfter: Int = 4, every: Int = 8) -> [FeedSlot] {
+        guard !items.isEmpty else { return [] }
+        var slots: [FeedSlot] = []
+        var remaining = ads[...]
+        for (index, item) in items.enumerated() {
+            slots.append(.item(item))
+            let position = index + 1
+            let due = position == firstAfter || (position > firstAfter && (position - firstAfter) % every == 0)
+            if due, let ad = remaining.popFirst() { slots.append(.ad(ad)) }
+        }
+        if items.count < firstAfter, let ad = remaining.first { slots.append(.ad(ad)) }
+        return slots
     }
 }
 

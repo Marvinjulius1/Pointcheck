@@ -25,6 +25,9 @@ final class AccountService {
     private(set) var recentFollowers: [PersonRow] = []
     private(set) var feed: [FeedItem] = []
     private(set) var feedHasMore = false
+    /// Paid campaigns of halls near me, mixed into the feed (see `feedSlots`).
+    private(set) var ads: [SponsoredAd] = []
+    @ObservationIgnored private var countedImpressions: Set<UUID> = []
     private(set) var suggestions: [PersonRow] = []
     /// Players opened from the search, newest first (kept on this device).
     private(set) var recentSearches: [PersonRow] = AccountService.loadRecentSearches()
@@ -207,6 +210,8 @@ final class AccountService {
         recentFollowers = []
         feed = []
         feedHasMore = false
+        ads = []
+        countedImpressions = []
         suggestions = []
         foreignMatches = []
         foreignIDs = []
@@ -297,16 +302,32 @@ final class AccountService {
         var visibility: ProfileVisibility
         var bio: String?
         var homeClub: String?
+        var homeHallID: UUID?
 
         enum CodingKeys: String, CodingKey {
             case username, visibility, bio
             case displayName = "display_name"
             case homeClub = "home_club"
+            case homeHallID = "home_hall_id"
+        }
+
+        // Empty bio, club and hall are sent as null so they can be cleared
+        // (the synthesized encoder would leave them out). An empty username is left out.
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(displayName, forKey: .displayName)
+            try c.encodeIfPresent(username, forKey: .username)
+            try c.encode(visibility, forKey: .visibility)
+            try c.encode(bio, forKey: .bio)
+            try c.encode(homeClub, forKey: .homeClub)
+            try c.encode(homeHallID, forKey: .homeHallID)
         }
     }
 
+    /// With `homeHall` set, the server shows the hall's name as home club; `homeClub`
+    /// (e.g. a city) only counts without a hall.
     func updateProfile(displayName: String, username: String, visibility: ProfileVisibility,
-                       bio: String = "", homeClub: String = "") async throws {
+                       bio: String = "", homeClub: String = "", homeHall: Hall? = nil) async throws {
         guard let userID else { return }
         let cleanName = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if !cleanName.isEmpty, cleanName.range(of: #"^[a-z0-9_.]{3,20}$"#, options: .regularExpression) == nil {
@@ -319,7 +340,8 @@ final class AccountService {
             username: cleanName.isEmpty ? nil : cleanName,
             visibility: visibility,
             bio: cleanBio.isEmpty ? nil : String(cleanBio.prefix(160)),
-            homeClub: cleanClub.isEmpty ? nil : String(cleanClub.prefix(60))
+            homeClub: homeHall?.name ?? (cleanClub.isEmpty ? nil : String(cleanClub.prefix(60))),
+            homeHallID: homeHall?.id
         )
         do {
             try await client.from("profiles").update(patch).eq("id", value: userID).execute()
@@ -440,7 +462,7 @@ final class AccountService {
 
     // MARK: - Images (Supabase Storage)
 
-    enum Bucket: String { case avatars, posts }
+    enum Bucket: String { case avatars, posts, halls }
 
     /// Public URL of a stored image, or `nil` without a path.
     func imageURL(_ path: String?, bucket: Bucket) -> URL? {
@@ -569,6 +591,67 @@ final class AccountService {
             feed = page
             feedHasMore = page.count == Self.feedPageSize
         }
+        // In the background: finding the rough position can take a few seconds.
+        Task { await self.loadAds() }
+    }
+
+    /// The feed with hall ads mixed in, for the Home tab.
+    var feedSlots: [FeedSlot] { FeedSlot.mix(feed, ads: ads) }
+
+    // MARK: - Halls & ads
+
+    private struct NearParams: Encodable {
+        var p_query: String?
+        var p_lat: Double?
+        var p_lon: Double?
+        var p_limit: Int?
+    }
+
+    /// Halls by name, city or postal code; with an empty query the nearest ones.
+    /// `askForLocation` shows the permission prompt if it was never answered.
+    func searchHalls(_ query: String, askForLocation: Bool = false) async -> [Hall] {
+        let position = await CoarseLocation.shared.coordinate(ask: askForLocation)
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let params = NearParams(p_query: text.isEmpty ? nil : text, p_lat: position?.latitude, p_lon: position?.longitude)
+        let halls: [Hall]? = await load("halls", {
+            try await self.client.rpc("search_halls", params: params).execute().value
+        })
+        return halls ?? []
+    }
+
+    /// Ads of halls near me: by rough position if location is allowed, else by my home hall.
+    /// Never asks for location permission by itself.
+    func loadAds() async {
+        let position = await CoarseLocation.shared.coordinate()
+        let params = NearParams(p_lat: position?.latitude, p_lon: position?.longitude, p_limit: 3)
+        if let loaded: [SponsoredAd] = await load("ads", {
+            try await self.client.rpc("feed_ads", params: params).execute().value
+        }) {
+            ads = loaded
+        }
+    }
+
+    private struct AdEventParams: Encodable {
+        var p_campaign: UUID
+        var p_kind: String
+    }
+
+    /// The ad came on screen. Counted once per app session (the server also ignores
+    /// repeats within 30 minutes).
+    func adAppeared(_ ad: SponsoredAd) {
+        guard countedImpressions.insert(ad.campaignID).inserted else { return }
+        Task { await logAdEvent(ad, kind: "impression") }
+    }
+
+    /// The button of the ad was tapped.
+    func adTapped(_ ad: SponsoredAd) {
+        Task { await logAdEvent(ad, kind: "click") }
+    }
+
+    private func logAdEvent(_ ad: SponsoredAd, kind: String) async {
+        _ = await load("ad \(kind)", {
+            try await self.client.rpc("log_ad_event", params: AdEventParams(p_campaign: ad.campaignID, p_kind: kind)).execute()
+        })
     }
 
     func loadMoreFeed() async {

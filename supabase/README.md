@@ -21,6 +21,11 @@ Matches mit Bestätigung durch den Gegner und die Spielstärke-Berechnung auf de
 | `posts`, `home_feed`, `profile_posts`, `profile_results` | Beiträge (Text, Bild, Match) und der Feed der Leute, denen ich folge |
 | Storage `avatars`, `posts` | Profilfotos und Beitragsbilder; nur der eigene Ordner ist beschreibbar |
 | `my_match_feed()` | Alle Matches, in denen ich spiele – aus meiner Sicht, mit Namen der Mitspieler |
+| `halls`, `search_halls(text, lat, lon)` | Padel-Hallen mit Koordinaten; Suche nach Name, Stadt, PLZ oder „in der Nähe“ |
+| `profiles.home_hall_id` | Heimat-Halle; `home_club` zeigt dann automatisch den Hallennamen |
+| `hall_campaigns`, `feed_ads(lat, lon)` | Bezahlte Hallen-Anzeigen im Feed – nur für Spieler im Umkreis der Halle |
+| `ad_events`, `log_ad_event`, `campaign_stats`, `campaign_report` | Einblendungen und Klicks; Auswertung pro Kampagne |
+| Storage `halls` | Hallen-Logos und Anzeigenbilder (nur das Pointcheck-Team lädt hoch) |
 
 **Sicherheitsregeln (Row Level Security):**
 - Profile sind „Öffentlich“ oder „Privat“ (nur bestätigte Follower). Folgen eines öffentlichen Profils gilt sofort, bei privaten muss die Anfrage angenommen werden.
@@ -51,6 +56,58 @@ Matches mit Bestätigung durch den Gegner und die Spielstärke-Berechnung auf de
    - Der eingebaute E-Mail-Versand schickt nur wenige Mails pro Stunde. Für echte Nutzer später einen eigenen
      E-Mail-Dienst (SMTP) unter **Authentication → Emails → SMTP** eintragen.
    - „Mit Apple anmelden“ kommt später mit dem Apple Developer Program dazu.
+
+## Hallen & Anzeigen verwalten
+
+Hallen und Kampagnen legst du im **SQL Editor** an (dort hast du Admin-Rechte; die App kann sie nur lesen).
+Bilder lädst du unter **Storage → halls** hoch und trägst den Dateinamen als `logo_path` / `image_path` ein.
+Koordinaten: in Google Maps Rechtsklick auf die Halle → die erste Zahl ist `latitude`, die zweite `longitude`.
+
+```sql
+-- 1. Halle anlegen
+insert into public.halls (name, street, postal_code, city, latitude, longitude, logo_path, booking_url)
+values ('Padel Club Beispiel', 'Musterstraße 1', '50667', 'Köln', 50.9375, 6.9603,
+        'padel-club-beispiel/logo.png', 'https://example.com/buchen')
+returning id;
+
+-- 2. Kampagne anlegen (id der Halle von oben einsetzen)
+insert into public.hall_campaigns
+    (hall_id, headline, body, image_path, cta_label, cta_url, radius_km, starts_at, ends_at,
+     max_impressions, daily_cap_per_player, price_cents)
+values ('<hall-id>', 'Happy Hour: −30 % auf Plätze',
+        'Mo–Do 14–17 Uhr. Einfach online buchen.', 'padel-club-beispiel/happy-hour.jpg',
+        'Platz buchen', 'https://example.com/buchen', 25,
+        '2026-12-01', '2027-01-01', null, 3, 7900);
+
+-- 3. Pausieren / fortsetzen
+update public.hall_campaigns set is_paused = true where id = '<campaign-id>';
+
+-- 4. Auswertung pro Tag (für den Monatsbericht an die Halle)
+select * from public.campaign_stats where hall = 'Padel Club Beispiel' order by day;
+
+-- 5. Optional: Konto der Halle verknüpfen – dann kann es campaign_report('<campaign-id>') abrufen
+insert into public.hall_managers (hall_id, profile_id) values ('<hall-id>', '<profil-id>');
+```
+
+**Regeln, die die Datenbank durchsetzt:**
+- Eine Anzeige sieht nur, wer im Umkreis `radius_km` der Halle ist – gemessen am ungefähren Standort
+  (auf ~1 km gerundet, nicht gespeichert) oder, ohne Standortfreigabe, an der eigenen Heimat-Halle.
+- Pro Spieler höchstens `daily_cap_per_player` Einblendungen am Tag; bei mehreren Hallen kommen zuerst die,
+  die der Spieler heute noch nicht gesehen hat.
+- Mit `max_impressions` endet eine Kampagne automatisch, sobald das bezahlte Volumen erreicht ist.
+- Wiederholte Einblendungen desselben Spielers innerhalb von 30 Minuten zählen einmal.
+- Spieler können weder Kampagnen noch Einblendungen direkt lesen oder schreiben.
+- Die App kennzeichnet jede Anzeige als **„Gesponsert“**, nennt die Halle als Auftraggeber und erklärt unter
+  „Warum sehe ich das?“, warum sie angezeigt wird (Kennzeichnungspflicht, EU Digital Services Act).
+  Vor dem Start mit echten Hallen: Datenschutzerklärung um Standort und Anzeigen ergänzen.
+
+## Tests (lokal)
+
+```bash
+PGHOST=... PGPORT=... PGUSER=postgres supabase/tests/run_local.sh
+```
+
+Läuft alle `supabase/tests/*_test.sql` gegen eine frische lokale Datenbank.
 
 ## Schlüssel – was in die App darf
 - **Project URL** und **anon / publishable key**: dürfen in die App und ins Repository.
