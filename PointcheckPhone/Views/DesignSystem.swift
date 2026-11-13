@@ -348,8 +348,7 @@ struct EmptyState: View {
                 .multilineTextAlignment(.center)
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
-                    .buttonStyle(.glassProminent)
-                    .tint(Theme.accent)
+                    .buttonStyle(.accent)
                     .padding(.top, 4)
             }
         }
@@ -456,6 +455,30 @@ struct PressScaleStyle: ButtonStyle {
 
 extension ButtonStyle where Self == PressScaleStyle {
     static var pressScale: PressScaleStyle { PressScaleStyle() }
+}
+
+/// Filled capsule in the neutral accent with guaranteed readable text
+/// (black on white in dark mode, white on black in light mode).
+struct AccentButtonStyle: ButtonStyle {
+    @Environment(\.controlSize) private var controlSize
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        let small = controlSize == .small || controlSize == .mini
+        configuration.label
+            .font((small ? Font.subheadline : .body).weight(.semibold))
+            .foregroundStyle(Theme.onAccent)
+            .padding(.horizontal, small ? 14 : 20)
+            .padding(.vertical, small ? 7 : 12)
+            .background(Theme.accent, in: .capsule)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.4)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == AccentButtonStyle {
+    static var accent: AccentButtonStyle { AccentButtonStyle() }
 }
 
 /// Thin full-width separator between feed items.

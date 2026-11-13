@@ -39,7 +39,9 @@ struct HomeView: View {
             ToolbarItem(placement: .topBarLeading) {
                 Text("Pointcheck")
                     .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .fixedSize()
             }
+            .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showsComposer = true } label: { Image(systemName: "plus.app") }
                     .accessibilityLabel("Beitrag schreiben")
@@ -70,7 +72,7 @@ struct HomeView: View {
                 if let me = account.profile {
                     NavigationLink(value: me.id) {
                         AvatarBubble(name: me.displayName, url: account.imageURL(me.avatarPath, bucket: .avatars),
-                                     caption: "Du", highlighted: true)
+                                     caption: "Du")
                     }
                     .buttonStyle(.pressScale)
                 }
