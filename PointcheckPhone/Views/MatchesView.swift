@@ -29,34 +29,40 @@ struct MatchesView: View {
             if groups.isEmpty {
                 NoMatchesView()
             } else {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    ForEach(groups) { group in
-                        SectionTitle(group.month.formatted(.dateTime.month(.wide).year())) {
-                            let wins = group.matches.filter { $0.winner == .me }.count
-                            let losses = group.matches.filter { $0.winner == .opponent }.count
-                            Text("\(wins) S · \(losses) N").foregroundStyle(.secondary).monospacedDigit()
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(groups.enumerated()), id: \.element.id) { groupIndex, group in
+                        let wins = group.matches.filter { $0.winner == .me }.count
+                        let losses = group.matches.filter { $0.winner == .opponent }.count
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(group.month.formatted(.dateTime.month(.wide).year()))
+                                .font(.title3.weight(.bold))
+                            Spacer()
+                            Text("\(wins) S · \(losses) N")
+                                .font(.subheadline.weight(.medium).monospacedDigit())
+                                .foregroundStyle(.secondary)
                         }
-                        Card {
-                            ForEach(Array(group.matches.enumerated()), id: \.element.id) { index, match in
-                                if index > 0 { RowDivider(inset: 68) }
-                                NavigationLink {
-                                    MatchDetailView(match: match)
-                                } label: {
-                                    MatchRow(match: match, isFromCoPlayer: account.foreignIDs.contains(match.id))
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 8)
-                                        .contentShape(.rect)
-                                }
-                                .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                        .padding(.top, groupIndex == 0 ? 8 : 28)
+                        .padding(.bottom, 8)
+                        ForEach(Array(group.matches.enumerated()), id: \.element.id) { index, match in
+                            NavigationLink {
+                                MatchDetailView(match: match)
+                            } label: {
+                                MatchRow(match: match, isFromCoPlayer: account.foreignIDs.contains(match.id))
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 10)
+                                    .contentShape(.rect)
                             }
+                            .buttonStyle(.pressScale)
+                            .revealOnAppear(delay: min(Double(index) * 0.04, 0.3))
+                            if index < group.matches.count - 1 { RowDivider(inset: 72) }
                         }
                     }
                 }
-                .padding(.horizontal)
                 .padding(.bottom, 24)
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Theme.background)
         .navigationTitle("Matches")
         .profileNavigation()
         .refreshable {

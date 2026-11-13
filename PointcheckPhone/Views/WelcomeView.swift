@@ -56,7 +56,7 @@ struct WelcomeView: View {
             .padding(.bottom, 32)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Color(.systemGroupedBackground))
+        .background(Theme.background)
         .animation(.snappy, value: mode)
         .animation(.snappy, value: errorText)
         .animation(.snappy, value: infoText)
@@ -68,7 +68,7 @@ struct WelcomeView: View {
                 .font(.system(size: 30, weight: .semibold))
                 .foregroundStyle(Theme.ball)
                 .frame(width: 64, height: 64)
-                .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 18, style: .continuous))
+                .background(Theme.surface, in: .rect(cornerRadius: 18, style: .continuous))
             Text("Pointcheck")
                 .font(.system(size: 30, weight: .bold, design: .rounded))
             Text(mode == .register ? "Erstelle dein Konto." : "Schön, dass du wieder da bist.")
@@ -167,7 +167,7 @@ struct NewPasswordView: View {
                         .font(.system(size: 30, weight: .semibold))
                         .foregroundStyle(Theme.me)
                         .frame(width: 64, height: 64)
-                        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 18, style: .continuous))
+                        .background(Theme.surface, in: .rect(cornerRadius: 18, style: .continuous))
                     Text("Neues Passwort")
                         .font(.system(size: 30, weight: .bold, design: .rounded))
                     Text("Mindestens 8 Zeichen.")
@@ -203,7 +203,7 @@ struct NewPasswordView: View {
             .padding(.top, 56)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Color(.systemGroupedBackground))
+        .background(Theme.background)
         .onAppear { focus = .password }
     }
 
@@ -345,7 +345,7 @@ struct ChangePasswordSheet: View {
                 }
                 .padding(20)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Theme.background)
             .navigationTitle("Passwort ändern")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

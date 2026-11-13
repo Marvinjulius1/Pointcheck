@@ -35,7 +35,7 @@ struct PostComposer: View {
                         .font(.body)
                         .lineLimit(4...10)
                         .padding(14)
-                        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 16, style: .continuous))
+                        .background(Theme.surface, in: .rect(cornerRadius: 16, style: .continuous))
 
                     if let photoPreview {
                         photoPreview.resizable().scaledToFill()
@@ -83,7 +83,7 @@ struct PostComposer: View {
                 }
                 .padding()
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Theme.background)
             .navigationTitle("Neuer Beitrag")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -22,20 +22,16 @@ struct ActivityView: View {
                     }
                     if !account.followRequests.isEmpty {
                         SectionTitle("Folge-Anfragen")
-                        Card {
-                            ForEach(Array(account.followRequests.enumerated()), id: \.element.id) { index, person in
-                                if index > 0 { RowDivider(inset: 72) }
-                                RequestRow(person: person)
-                            }
+                        ForEach(Array(account.followRequests.enumerated()), id: \.element.id) { index, person in
+                            if index > 0 { RowDivider(inset: 72) }
+                            RequestRow(person: person)
                         }
                     }
                     if !account.recentFollowers.isEmpty {
                         SectionTitle("Neue Follower")
-                        Card {
-                            ForEach(Array(account.recentFollowers.enumerated()), id: \.element.id) { index, person in
-                                if index > 0 { RowDivider(inset: 72) }
-                                PersonListRow(person: person, subtitle: person.followedAt.map { "Folgt dir seit \($0.relativeShort)" })
-                            }
+                        ForEach(Array(account.recentFollowers.enumerated()), id: \.element.id) { index, person in
+                            if index > 0 { RowDivider(inset: 72) }
+                            PersonListRow(person: person, subtitle: person.followedAt.map { "Folgt dir seit \($0.relativeShort)" })
                         }
                     }
                 }
@@ -43,7 +39,7 @@ struct ActivityView: View {
             .padding(.horizontal)
             .padding(.bottom, 24)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Theme.background)
         .navigationTitle("Aktivität")
         .refreshable { await account.refresh() }
         .profileNavigation()

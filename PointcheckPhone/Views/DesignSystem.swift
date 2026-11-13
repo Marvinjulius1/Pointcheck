@@ -9,7 +9,7 @@ struct Card<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) { content }
-            .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 22, style: .continuous))
+            .background(Theme.surface, in: .rect(cornerRadius: 22, style: .continuous))
     }
 }
 
@@ -388,5 +388,101 @@ extension Date {
         if Calendar.current.isDateInYesterday(self) { return "gestern" }
         if seconds < 7 * 86_400 { return "vor \(Int(seconds / 86_400)) Tagen" }
         return formatted(.dateTime.day().month(.abbreviated))
+    }
+}
+
+// MARK: - Motion (Trade-Republic-style)
+
+/// Counts a number up on appear and whenever it changes.
+struct CountUpText: View {
+    let value: Double
+    var format: (Double) -> String = { Int($0.rounded()).formatted() }
+    @State private var shown: Double = 0
+
+    var body: some View {
+        Text(format(shown))
+            .contentTransition(.numericText(value: shown))
+            .onAppear { withAnimation(.spring(response: 0.9, dampingFraction: 0.9)) { shown = value } }
+            .onChange(of: value) { _, new in withAnimation(.snappy) { shown = new } }
+    }
+}
+
+/// Fades and slides a view in on first appearance, optionally staggered.
+struct RevealOnAppear: ViewModifier {
+    var delay: Double = 0
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .offset(y: shown ? 0 : 14)
+            .onAppear {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(delay)) { shown = true }
+            }
+    }
+}
+
+extension View {
+    func revealOnAppear(delay: Double = 0) -> some View { modifier(RevealOnAppear(delay: delay)) }
+
+    /// Draws a chart (or anything) from left to right on appear.
+    func drawOnAppear(duration: Double = 0.9) -> some View { modifier(DrawOnAppear(duration: duration)) }
+}
+
+struct DrawOnAppear: ViewModifier {
+    let duration: Double
+    @State private var progress: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .mask(alignment: .leading) {
+                GeometryReader { proxy in
+                    Rectangle().frame(width: proxy.size.width * progress)
+                }
+            }
+            .onAppear { withAnimation(.easeOut(duration: duration)) { progress = 1 } }
+    }
+}
+
+/// Buttons shrink slightly while pressed.
+struct PressScaleStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PressScaleStyle {
+    static var pressScale: PressScaleStyle { PressScaleStyle() }
+}
+
+/// Thin full-width separator between feed items.
+struct FeedDivider: View {
+    var body: some View {
+        Rectangle().fill(Theme.hairline).frame(height: 0.5)
+    }
+}
+
+/// Instagram-style avatar bubble for the row at the top of the feed.
+struct AvatarBubble: View {
+    let name: String
+    var url: URL?
+    var caption: String?
+    var highlighted = false
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ProfilePhoto(name: name, url: url, size: 64)
+                .padding(3)
+                .overlay(
+                    Circle().stroke(highlighted ? AnyShapeStyle(Theme.me.gradient) : AnyShapeStyle(Theme.hairline), lineWidth: highlighted ? 2.5 : 1)
+                )
+            Text(caption ?? name)
+                .font(.caption)
+                .lineLimit(1)
+                .frame(width: 72)
+        }
     }
 }

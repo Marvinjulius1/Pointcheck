@@ -71,7 +71,7 @@ private struct BadgeTile: View {
         }
         .frame(maxWidth: .infinity)
         .padding(14)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 22, style: .continuous))
+        .background(Theme.surface, in: .rect(cornerRadius: 22, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }

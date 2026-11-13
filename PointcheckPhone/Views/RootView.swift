@@ -9,7 +9,7 @@ struct AppGate: View {
         ZStack {
             switch account.state {
             case .loading:
-                Color(.systemGroupedBackground).ignoresSafeArea()
+                Theme.background.ignoresSafeArea()
                 ProgressView()
             case .signedOut:
                 WelcomeView()

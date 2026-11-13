@@ -34,7 +34,7 @@ struct StatsView: View {
                     .padding(.horizontal)
                     .padding(.bottom, 24)
                 }
-                .background(Color(.systemGroupedBackground))
+                .background(Theme.background)
             }
         }
         .navigationTitle("Statistik")
@@ -324,6 +324,7 @@ struct RatingHero: View {
             .chartYScale(domain: yDomain(window))
             .chartXSelection(value: $selectedDate)
             .frame(height: 190)
+            .drawOnAppear()
             .sensoryFeedback(.selection, trigger: selected?.date)
             .animation(.smooth, value: range)
 
@@ -388,7 +389,7 @@ struct PartnersRivalsView: View {
             }
             .padding()
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Theme.background)
         .navigationTitle(mode.rawValue)
     }
 }

@@ -41,7 +41,7 @@ struct SearchView: View {
             .padding(.horizontal)
             .padding(.bottom, 24)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Theme.background)
         .navigationTitle("Suche")
         .searchable(text: $query, prompt: "Name oder @benutzername")
         .textInputAutocapitalization(.never)
@@ -53,10 +53,11 @@ struct SearchView: View {
     }
 
     private func peopleCard(_ people: [PersonRow], subtitle: @escaping (PersonRow) -> String?) -> some View {
-        Card {
+        VStack(spacing: 0) {
             ForEach(Array(people.enumerated()), id: \.element.id) { index, person in
                 if index > 0 { RowDivider(inset: 72) }
                 PersonListRow(person: person, subtitle: subtitle(person) ?? person.username.map { "@\($0)" })
+                    .revealOnAppear(delay: min(Double(index) * 0.04, 0.3))
             }
         }
     }

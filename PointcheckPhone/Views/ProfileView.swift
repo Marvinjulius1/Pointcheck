@@ -19,6 +19,44 @@ struct ProfileView: View {
     enum ProfileTab: String, CaseIterable, Identifiable {
         case results = "Ergebnisse", posts = "Beiträge", badges = "Erfolge"
         var id: Self { self }
+
+        var symbol: String {
+            switch self {
+            case .results: "square.grid.3x3"
+            case .posts: "text.below.photo"
+            case .badges: "trophy"
+            }
+        }
+    }
+
+    /// Instagram-style icon tabs with a sliding underline.
+    private var tabBar: some View {
+        let tabs: [ProfileTab] = isMe ? ProfileTab.allCases : [.results, .posts]
+        return VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                ForEach(tabs) { value in
+                    Button {
+                        withAnimation(.snappy) { tab = value }
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image(systemName: value.symbol)
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundStyle(tab == value ? .primary : .secondary)
+                            Rectangle()
+                                .fill(tab == value ? Color.primary : .clear)
+                                .frame(height: 1.5)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(value.rawValue)
+                    .accessibilityAddTraits(tab == value ? .isSelected : [])
+                }
+            }
+            FeedDivider()
+        }
+        .sensoryFeedback(.selection, trigger: tab)
     }
 
     private var isMe: Bool { profileID == account.userID }
@@ -26,20 +64,22 @@ struct ProfileView: View {
     var body: some View {
         ScrollView {
             if let page {
-                VStack(spacing: 20) {
+                VStack(spacing: 18) {
                     header(page)
+                        .padding(.horizontal)
+                        .revealOnAppear()
                     if page.isVisible {
                         statsStrip(page)
-                        Picker("Bereich", selection: $tab) {
-                            ForEach(isMe ? ProfileTab.allCases : [.results, .posts]) { Text($0.rawValue).tag($0) }
-                        }
-                        .pickerStyle(.segmented)
+                            .padding(.horizontal)
+                            .revealOnAppear(delay: 0.06)
+                        tabBar
                         content
+                            .revealOnAppear(delay: 0.12)
                     } else {
                         privateNotice(page)
+                            .padding(.horizontal)
                     }
                 }
-                .padding(.horizontal)
                 .padding(.bottom, 32)
             } else if isLoading {
                 ProgressView().padding(.top, 80)
@@ -48,7 +88,7 @@ struct ProfileView: View {
                            message: "Dieses Profil gibt es nicht mehr oder es ist gerade nicht erreichbar.")
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Theme.background)
         .navigationTitle(page?.username.map { "@\($0)" } ?? "Profil")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -88,7 +128,7 @@ struct ProfileView: View {
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
                             .background(Theme.me.gradient, in: .capsule)
-                            .overlay(Capsule().stroke(Color(.systemGroupedBackground), lineWidth: 2))
+                            .overlay(Capsule().stroke(Theme.background, lineWidth: 2))
                             .offset(x: 4, y: 4)
                             .accessibilityLabel("Level \(level.formatted(.number.precision(.fractionLength(1))))")
                     }
@@ -165,9 +205,8 @@ struct ProfileView: View {
 
     private func counterLabel(_ value: Int, _ label: String) -> some View {
         VStack(spacing: 2) {
-            Text(value.formatted())
+            CountUpText(value: Double(value))
                 .font(.system(size: 20, weight: .bold, design: .rounded).monospacedDigit())
-                .contentTransition(.numericText())
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -189,26 +228,28 @@ struct ProfileView: View {
     // MARK: Stats strip
 
     private func statsStrip(_ page: ProfilePage) -> some View {
-        Card {
-            HStack(spacing: 0) {
-                stat(value: page.rating.map { Int($0.rounded()).formatted() } ?? "–", label: "Punkte")
-                Divider().frame(height: 36)
-                stat(value: page.winRate?.percentText ?? "–", label: "Siegquote")
-                Divider().frame(height: 36)
-                stat(value: streakText(page.currentStreak), label: "Serie",
-                     tint: (page.currentStreak ?? 0) > 0 ? Theme.me : (page.currentStreak ?? 0) < 0 ? Theme.opponent : .primary)
-                Divider().frame(height: 36)
-                stat(value: "\(page.ratedMatches ?? 0)", label: "Matches")
-            }
-            .padding(.vertical, 14)
+        HStack(spacing: 0) {
+            stat(number: page.rating, text: nil, label: "Punkte")
+            stat(number: nil, text: page.winRate?.percentText ?? "–", label: "Siegquote")
+            stat(number: nil, text: streakText(page.currentStreak), label: "Serie",
+                 tint: (page.currentStreak ?? 0) > 0 ? Theme.me : (page.currentStreak ?? 0) < 0 ? Theme.opponent : .primary)
+            stat(number: Double(page.ratedMatches ?? 0), text: nil, label: "Matches")
         }
+        .padding(.vertical, 14)
+        .background(Theme.surface, in: .rect(cornerRadius: 18, style: .continuous))
     }
 
-    private func stat(value: String, label: String, tint: Color = .primary) -> some View {
+    private func stat(number: Double?, text: String?, label: String, tint: Color = .primary) -> some View {
         VStack(spacing: 3) {
-            Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded).monospacedDigit())
-                .foregroundStyle(tint)
+            Group {
+                if let number {
+                    CountUpText(value: number)
+                } else {
+                    Text(text ?? "–")
+                }
+            }
+            .font(.system(size: 18, weight: .bold, design: .rounded).monospacedDigit())
+            .foregroundStyle(tint)
             Text(label).font(.caption).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -231,9 +272,10 @@ struct ProfileView: View {
                            message: isMe ? "Bestätigte Matches erscheinen hier. Trag deine Gegner ein und lass sie bestätigen."
                                          : "Sobald \(page?.displayName ?? "") bestätigte Matches hat, stehen sie hier.")
             } else {
-                LazyVStack(spacing: 10) {
-                    ForEach(results) { ResultCard(result: $0) }
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
+                    ForEach(results) { ResultTile(result: $0) }
                 }
+                .padding(.horizontal, 2)
             }
         case .posts:
             if posts.isEmpty {
@@ -242,21 +284,22 @@ struct ProfileView: View {
                            actionTitle: isMe ? "Beitrag schreiben" : nil,
                            action: isMe ? { showsComposer = true } : nil)
             } else {
-                LazyVStack(spacing: 12) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
                     ForEach(posts) { post in
-                        PostCard(
-                            authorName: page?.displayName ?? "",
-                            authorAvatar: account.imageURL(page?.avatarPath, bucket: .avatars),
-                            text: post.text, imageURL: account.imageURL(post.imagePath, bucket: .posts),
-                            match: post.match, createdAt: post.createdAt,
-                            canDelete: isMe,
-                            onDelete: { Task { try? await account.deletePost(post.id); await load() } }
-                        )
+                        NavigationLink {
+                            PostDetailView(post: post, authorName: page?.displayName ?? "",
+                                           authorAvatar: account.imageURL(page?.avatarPath, bucket: .avatars),
+                                           canDelete: isMe, onDelete: { Task { try? await account.deletePost(post.id); await load() } })
+                        } label: {
+                            PostTile(post: post, imageURL: account.imageURL(post.imagePath, bucket: .posts))
+                        }
+                        .buttonStyle(.pressScale)
                     }
                 }
+                .padding(.horizontal, 2)
             }
         case .badges:
-            BadgesGrid()
+            BadgesGrid().padding(.horizontal)
         }
     }
 
@@ -297,7 +340,104 @@ struct ProfileView: View {
     }
 }
 
-// MARK: - Result card
+// MARK: - Grid tiles
+
+/// Square tile in the results grid: sets score big, result text small.
+struct ResultTile: View {
+    let result: ProfileResult
+
+    private var tint: Color { result.playerWon ? Theme.me : Theme.opponent }
+    private var sets: TeamScore {
+        result.setsFromPlayer.reduce(into: TeamScore.zero) { acc, set in
+            if let winner = set.winner { acc[winner] += 1 }
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text("\(sets.me):\(sets.opponent)")
+                .font(Theme.scoreFont(size: 30))
+                .foregroundStyle(tint)
+            Text(result.resultText)
+                .font(.system(size: 11, weight: .semibold, design: .rounded).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(result.startedAt.formatted(.dateTime.day().month(.abbreviated)))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .aspectRatio(1, contentMode: .fit)
+        .background(tint.opacity(0.12))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(result.playerWon ? "Sieg" : "Niederlage") \(result.resultText)")
+    }
+}
+
+/// Square tile in the posts grid: image, or result, or text.
+struct PostTile: View {
+    let post: ProfilePost
+    var imageURL: URL?
+
+    var body: some View {
+        ZStack {
+            if let imageURL {
+                AsyncImage(url: imageURL) { phase in
+                    if let image = phase.image { image.resizable().scaledToFill() } else { Theme.surface }
+                }
+            } else if let match = post.match {
+                let tint = match.authorWon ? Theme.me : Theme.opponent
+                tint.opacity(0.12)
+                VStack(spacing: 4) {
+                    Text("\(match.setsWon.me):\(match.setsWon.opponent)")
+                        .font(Theme.scoreFont(size: 28))
+                        .foregroundStyle(tint)
+                    Text(match.resultText)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .padding(.horizontal, 6)
+                }
+            } else {
+                Theme.surface
+                Text(post.text)
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(5)
+                    .padding(10)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .aspectRatio(1, contentMode: .fit)
+        .clipped()
+    }
+}
+
+/// Full post when a tile is tapped.
+struct PostDetailView: View {
+    let post: ProfilePost
+    let authorName: String
+    var authorAvatar: URL?
+    var canDelete = false
+    var onDelete: (() -> Void)?
+    @Environment(AccountService.self) private var account
+
+    var body: some View {
+        ScrollView {
+            PostCard(authorName: authorName, authorAvatar: authorAvatar, text: post.text,
+                     imageURL: account.imageURL(post.imagePath, bucket: .posts), match: post.match,
+                     createdAt: post.createdAt, canDelete: canDelete, onDelete: onDelete)
+                .padding()
+        }
+        .background(Theme.background)
+        .navigationTitle("Beitrag")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Result card (lists)
 
 struct ResultCard: View {
     let result: ProfileResult
@@ -462,7 +602,7 @@ struct PeopleListView: View {
                 .padding()
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Theme.background)
         .navigationTitle(kind.title)
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -519,7 +659,7 @@ struct ProfileEditor: View {
                                     .foregroundStyle(.white)
                                     .frame(width: 30, height: 30)
                                     .background(Theme.me.gradient, in: .circle)
-                                    .overlay(Circle().stroke(Color(.systemGroupedBackground), lineWidth: 2))
+                                    .overlay(Circle().stroke(Theme.background, lineWidth: 2))
                             }
                         }
                         .buttonStyle(.plain)

@@ -5,6 +5,11 @@ enum Theme {
     static let me = Color(red: 0.19, green: 0.84, blue: 0.35)
     static let opponent = Color(red: 1.0, green: 0.27, blue: 0.23)
     static let ball = Color(red: 0.86, green: 1.0, blue: 0.31)
+    /// Page background: pure white / black, like Trade Republic.
+    static let background = Color(.systemBackground)
+    /// Quiet tile on top of the page.
+    static let surface = Color(.secondarySystemBackground)
+    static let hairline = Color(.separator).opacity(0.5)
 
     static func scoreFont(size: CGFloat) -> Font {
         .system(size: size, weight: .bold, design: .rounded).monospacedDigit()
