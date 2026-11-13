@@ -55,7 +55,7 @@ struct SearchView: View {
         .profileNavigation()
     }
 
-    private func peopleCard(_ people: [PersonRow], subtitle: (PersonRow) -> String?) -> some View {
+    private func peopleCard(_ people: [PersonRow], subtitle: @escaping (PersonRow) -> String?) -> some View {
         Card {
             ForEach(Array(people.enumerated()), id: \.element.id) { index, person in
                 if index > 0 { RowDivider(inset: 72) }
