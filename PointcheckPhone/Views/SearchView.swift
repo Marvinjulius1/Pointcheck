@@ -11,10 +11,7 @@ struct SearchView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                if account.state != .signedIn {
-                    EmptyState(symbol: "person.crop.circle.badge.questionmark", title: "Spieler finden",
-                               message: "Melde dich im Tab „Profil“ an, um Spieler zu suchen und ihnen zu folgen.")
-                } else if query.trimmingCharacters(in: .whitespaces).count >= 2 {
+                if query.trimmingCharacters(in: .whitespaces).count >= 2 {
                     if isSearching && results.isEmpty {
                         ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
                     } else if results.isEmpty {

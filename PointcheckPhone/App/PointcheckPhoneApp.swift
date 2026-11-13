@@ -29,7 +29,7 @@ struct PointcheckPhoneApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            AppGate()
                 .environment(sync)
                 .environment(health)
                 .environment(account)

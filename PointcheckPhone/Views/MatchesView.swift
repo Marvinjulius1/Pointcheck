@@ -201,12 +201,10 @@ struct MatchDetailView: View {
             OnlineMatchSection(match: match)
 
             Section {
-                if account.state == .signedIn {
-                    Button {
-                        showsComposer = true
-                    } label: {
-                        Label("Als Beitrag teilen", systemImage: "square.and.pencil")
-                    }
+                Button {
+                    showsComposer = true
+                } label: {
+                    Label("Als Beitrag teilen", systemImage: "square.and.pencil")
                 }
                 ShareResultButton(match: match, workout: workout)
             } footer: {

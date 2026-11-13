@@ -21,9 +21,7 @@ struct HomeView: View {
                 statsLink(all)
 
                 SectionTitle("Feed") {
-                    if account.state == .signedIn {
-                        Button("Beitrag", systemImage: "square.and.pencil") { showsComposer = true }
-                    }
+                    Button("Beitrag", systemImage: "square.and.pencil") { showsComposer = true }
                 }
                 feed
             }
@@ -90,10 +88,7 @@ struct HomeView: View {
 
     @ViewBuilder
     private var feed: some View {
-        if account.state != .signedIn {
-            EmptyState(symbol: "person.2.wave.2", title: "Spiel nicht allein",
-                       message: "Melde dich an, folge deinen Mitspielern und sieh ihre Ergebnisse und Beiträge hier.")
-        } else if account.feed.isEmpty {
+        if account.feed.isEmpty {
             EmptyState(symbol: "sparkles", title: "Dein Feed ist noch leer",
                        message: "Folge Spielern, dann erscheinen ihre Ergebnisse und Beiträge hier.")
             if !account.suggestions.isEmpty {

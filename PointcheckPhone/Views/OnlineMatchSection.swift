@@ -20,10 +20,6 @@ struct OnlineMatchSection: View {
                       systemImage: "checkmark.seal.fill")
                     .font(.subheadline)
                     .foregroundStyle(Theme.me)
-            } else if account.state != .signedIn {
-                Label("Melde dich im Tab „Profil“ an, um das Match bestätigen zu lassen.", systemImage: "person.crop.circle")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
             } else if !match.isDecided {
                 Text("Nur entschiedene Matches können eingetragen werden.")
                     .foregroundStyle(.secondary)
@@ -58,7 +54,7 @@ struct OnlineMatchSection: View {
         } header: {
             Text("Spielstärke")
         } footer: {
-            if account.state == .signedIn, !account.foreignIDs.contains(match.id), status == nil || status == .pending {
+            if !account.foreignIDs.contains(match.id), status == nil || status == .pending {
                 Text("Mit @ verlinkst du ein Konto – dieser Gegner bestätigt das Ergebnis in seiner App. Namen ohne @ werden nur als Gast gespeichert.")
             }
         }

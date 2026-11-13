@@ -1,6 +1,28 @@
 import SwiftData
 import SwiftUI
 
+/// The app is only usable with an account: welcome screen until signed in.
+struct AppGate: View {
+    @Environment(AccountService.self) private var account
+
+    var body: some View {
+        ZStack {
+            switch account.state {
+            case .loading:
+                Color.black.ignoresSafeArea()
+                ProgressView().tint(.white)
+            case .signedOut, .awaitingCode:
+                WelcomeView()
+                    .transition(.opacity)
+            case .signedIn:
+                RootView()
+                    .transition(.opacity)
+            }
+        }
+        .animation(.smooth(duration: 0.4), value: account.state == .signedIn)
+    }
+}
+
 struct RootView: View {
     @Query private var stored: [StoredMatch]
     @Environment(HealthService.self) private var health
@@ -46,14 +68,16 @@ struct RootView: View {
     }
 }
 
-/// Profile tab: sign-in while signed out, otherwise my own profile.
+/// Profile tab: my own profile.
 private struct MyProfileTab: View {
     @Environment(AccountService.self) private var account
 
     var body: some View {
-        AccountGate {
+        Group {
             if let id = account.userID {
                 ProfileView(profileID: id)
+            } else {
+                ProgressView()
             }
         }
         .navigationTitle("Profil")

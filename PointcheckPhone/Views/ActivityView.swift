@@ -12,9 +12,7 @@ struct ActivityView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                if account.state != .signedIn {
-                    EmptyState(symbol: "bell", title: "Aktivität", message: "Melde dich im Tab „Profil“ an, um Anfragen und Bestätigungen zu sehen.")
-                } else if isEmpty {
+                if isEmpty {
                     EmptyState(symbol: "bell", title: "Alles erledigt",
                                message: "Hier erscheinen Folge-Anfragen, neue Follower und Ergebnisse, die du bestätigen sollst.")
                 } else {
