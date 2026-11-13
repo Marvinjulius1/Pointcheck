@@ -79,7 +79,7 @@ struct ScoreField: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity,
                        alignment: team == .opponent ? .bottom : .top)
             .frame(width: proxy.size.width, height: proxy.size.height)
-            .glassEffect(.regular.tint(tint.opacity(isHighlighted ? 0.75 : 0.5)).interactive(), in: shape)
+            .modifier(TintedGlass(tint: tint.opacity(isHighlighted ? 0.75 : 0.5), shape: shape))
             .background {
                 // Colour underneath the glass gives the soft gradient glow.
                 shape.fill(
@@ -113,5 +113,20 @@ struct ScoreField: View {
         .accessibilityHint("Punkt für \(Theme.title(for: team))")
         .accessibilityAction { if isEnabled { action() } }
         .accessibilityAction(named: "Aufschlag wechseln") { onServeTap?() }
+    }
+}
+
+
+/// Tinted Liquid Glass on watchOS 26+, a flat tinted fill on older watches.
+private struct TintedGlass<S: Shape>: ViewModifier {
+    let tint: Color
+    let shape: S
+
+    func body(content: Content) -> some View {
+        if #available(watchOS 26.0, *) {
+            content.glassEffect(.regular.tint(tint).interactive(), in: shape)
+        } else {
+            content.background(shape.fill(tint.opacity(0.6)))
+        }
     }
 }

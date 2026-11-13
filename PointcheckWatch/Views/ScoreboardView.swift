@@ -131,7 +131,7 @@ struct ScoreboardView: View {
             .font(.system(size: 14, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: controlSize, height: controlSize)
-            .glassEffect(.regular.interactive(), in: .circle)
+            .modifier(GlassCircle())
             .contentShape(.circle)
     }
 
@@ -206,7 +206,7 @@ private struct MatchResultOverlay: View {
                 .foregroundStyle(.secondary)
 
             Button("Neues Match", action: onNewMatch)
-                .buttonStyle(.glassProminent)
+                .modifier(ProminentButton())
                 .tint(didWin ? Theme.me : Theme.opponent)
                 .padding(.top, 4)
 
@@ -219,5 +219,27 @@ private struct MatchResultOverlay: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.ultraThinMaterial)
         .background(.black.opacity(0.4))
+    }
+}
+
+
+/// Liquid Glass on watchOS 26+, a plain fallback on older watches.
+private struct GlassCircle: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(watchOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: .circle)
+        } else {
+            content.background(.white.opacity(0.18), in: .circle)
+        }
+    }
+}
+
+private struct ProminentButton: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(watchOS 26.0, *) {
+            content.buttonStyle(.glassProminent)
+        } else {
+            content.buttonStyle(.borderedProminent)
+        }
     }
 }

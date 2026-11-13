@@ -80,7 +80,7 @@ Alternativ `Packages/PadelScoring/Package.swift` in Xcode öffnen und **⌘U** d
 
 ### Voraussetzungen
 - Mac mit **Xcode 26** (enthält das watchOS-26-SDK)
-- Apple Watch mit **watchOS 26**, gekoppelt mit deinem iPhone
+- Apple Watch mit **watchOS 10** oder neuer (Liquid Glass ab watchOS 26), gekoppelt mit deinem iPhone
 - Apple-ID. Ein kostenloser Account reicht, dann läuft die App allerdings nur 7 Tage und muss danach neu installiert werden.
   Mit dem bezahlten Developer Program (99 €/Jahr) gilt das nicht.
 
@@ -130,4 +130,4 @@ Alternativ Schema **Pointcheck** mit einem **Apple Watch Simulator** starten. Di
 2. Die generierten Swift-Dateien und `Assets.xcassets` löschen. Danach den Ordnerinhalt von `PointcheckWatch/` ins Projekt ziehen.
 3. *File → Add Package Dependencies… → Add Local…* → `Packages/PadelScoring` wählen und dem Watch-Target hinzufügen.
 4. Unter *Signing & Capabilities*: **+ HealthKit** und **+ Background Modes → Workout processing** hinzufügen.
-5. Unter *Build Settings*: `Info.plist File` = `PointcheckWatch/Info.plist` (oder die zwei `NSHealth…`-Texte im Info-Tab eintragen), Deployment Target watchOS 26.0.
+5. Unter *Build Settings*: `Info.plist File` = `PointcheckWatch/Info.plist` (oder die zwei `NSHealth…`-Texte im Info-Tab eintragen), Deployment Target watchOS 10.0.
