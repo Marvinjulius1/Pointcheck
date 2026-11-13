@@ -35,10 +35,6 @@ struct SettingsView: View {
             }
 
             Section {
-                NavigationLink("Öffentliche Rangliste") { LeaderboardView() }
-            }
-
-            Section {
                 LabeledContent("E-Mail", value: account.client.auth.currentUser?.email ?? "–")
                 Button("Passwort ändern") { showsPasswordSheet = true }
             } header: {

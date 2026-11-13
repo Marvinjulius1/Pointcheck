@@ -20,14 +20,15 @@ struct HomeView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 RatingStrip(matches: all)
                     .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 24)
                     .revealOnAppear()
 
                 avatarRow
                     .revealOnAppear(delay: 0.08)
 
                 FeedDivider()
+                    .padding(.top, 4)
 
                 feed
             }
@@ -105,7 +106,7 @@ struct HomeView: View {
                 .buttonStyle(.pressScale)
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 14)
+            .padding(.bottom, 18)
         }
     }
 
@@ -114,18 +115,10 @@ struct HomeView: View {
     @ViewBuilder
     private var feed: some View {
         if account.feed.isEmpty {
-            VStack(spacing: 0) {
-                EmptyState(symbol: "sparkles", title: "Dein Feed ist noch leer",
-                           message: "Folge Spielern, dann erscheinen ihre Ergebnisse und Beiträge hier. Oder teile dein erstes Match.",
-                           actionTitle: "Beitrag schreiben", action: { showsComposer = true })
-                if !account.suggestions.isEmpty {
-                    SectionTitle("Vorschläge für dich").padding(.horizontal, 16)
-                    ForEach(Array(account.suggestions.prefix(5).enumerated()), id: \.element.id) { index, person in
-                        if index > 0 { RowDivider(inset: 72) }
-                        PersonListRow(person: person, subtitle: person.reason)
-                    }
-                }
-            }
+            EmptyState(symbol: "sparkles", title: "Noch nichts im Feed",
+                       message: "Folge Spielern oben in der Reihe – oder teile dein erstes Match.",
+                       actionTitle: "Beitrag schreiben", action: { showsComposer = true })
+                .padding(.top, 24)
         } else {
             ForEach(Array(account.feed.enumerated()), id: \.element.id) { index, item in
                 FeedEntry(item: item)
@@ -179,13 +172,8 @@ private struct RatingStrip: View {
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
                     CountUpText(value: data.current)
-                        .font(.system(size: 36, weight: .semibold, design: .rounded).monospacedDigit())
-                    HStack(spacing: 6) {
-                        ChangeLabel(change: change.delta, base: change.base, suffix: "30 Tage")
-                        if !data.isServer {
-                            Text("· Vorschau").font(.subheadline).foregroundStyle(.secondary)
-                        }
-                    }
+                        .font(.system(size: 40, weight: .semibold, design: .rounded).monospacedDigit())
+                    ChangeLabel(change: change.delta, base: change.base, suffix: "30 Tage")
                 }
                 Spacer()
                 Chart(window) { point in
@@ -229,11 +217,11 @@ private struct FeedEntry: View {
     private var isMine: Bool { item.authorID == account.userID }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 NavigationLink(value: item.authorID) {
-                    HStack(spacing: 10) {
-                        ProfilePhoto(name: item.authorName, url: account.imageURL(item.authorAvatar, bucket: .avatars), size: 36)
+                    HStack(spacing: 12) {
+                        ProfilePhoto(name: item.authorName, url: account.imageURL(item.authorAvatar, bucket: .avatars), size: 40)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(item.authorName).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                             Text(subtitle).font(.caption).foregroundStyle(.secondary)
@@ -276,7 +264,7 @@ private struct FeedEntry: View {
                     .padding(.horizontal, 16)
             }
         }
-        .padding(.vertical, 14)
+        .padding(.vertical, 18)
         .confirmationDialog("Beitrag löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Löschen", role: .destructive) { Task { try? await account.deletePost(item.id) } }
             Button("Abbrechen", role: .cancel) {}

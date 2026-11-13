@@ -50,7 +50,7 @@ struct MatchesView: View {
                             } label: {
                                 MatchRow(match: match, isFromCoPlayer: account.foreignIDs.contains(match.id))
                                     .padding(.horizontal, 20)
-                                    .padding(.vertical, 10)
+                                    .padding(.vertical, 14)
                                     .contentShape(.rect)
                             }
                             .buttonStyle(.pressScale)
@@ -200,8 +200,7 @@ struct MatchDetailView: View {
                 if let duration = match.duration {
                     LabeledContent("Dauer", value: duration.durationText)
                 }
-                LabeledContent("Modus", value: match.modeText)
-                LabeledContent("40:40", value: match.goldenPoint ? "Golden Point" : "Vorteil")
+                LabeledContent("Modus", value: match.goldenPoint ? "\(match.modeText) · Golden Point" : match.modeText)
             }
 
             OnlineMatchSection(match: match)

@@ -38,9 +38,9 @@ struct ProfileView: View {
                     Button {
                         withAnimation(.snappy) { tab = value }
                     } label: {
-                        VStack(spacing: 8) {
+                        VStack(spacing: 12) {
                             Image(systemName: value.symbol)
-                                .font(.system(size: 20, weight: .medium))
+                                .font(.system(size: 21, weight: .medium))
                                 .foregroundStyle(tab == value ? .primary : .secondary)
                             Rectangle()
                                 .fill(tab == value ? Color.primary : .clear)
@@ -64,15 +64,16 @@ struct ProfileView: View {
     var body: some View {
         ScrollView {
             if let page {
-                VStack(spacing: 18) {
+                VStack(spacing: 24) {
                     header(page)
-                        .padding(.horizontal)
+                        .padding(.horizontal, 20)
                         .revealOnAppear()
                     if page.isVisible {
                         statsStrip(page)
-                            .padding(.horizontal)
+                            .padding(.horizontal, 20)
                             .revealOnAppear(delay: 0.06)
                         tabBar
+                            .padding(.top, 4)
                         content
                             .revealOnAppear(delay: 0.12)
                     } else {
@@ -94,13 +95,8 @@ struct ProfileView: View {
         .toolbar {
             if isMe {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("Beitrag schreiben", systemImage: "square.and.pencil") { showsComposer = true }
-                        Button("Profil bearbeiten", systemImage: "person.crop.circle") { showsEditor = true }
-                        NavigationLink { SettingsView() } label: { Label("Einstellungen", systemImage: "gearshape") }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
+                    NavigationLink { SettingsView() } label: { Image(systemName: "gearshape") }
+                        .accessibilityLabel("Einstellungen")
                 }
             }
         }
@@ -117,8 +113,8 @@ struct ProfileView: View {
     // MARK: Header
 
     private func header(_ page: ProfilePage) -> some View {
-        VStack(spacing: 16) {
-            HStack(alignment: .center, spacing: 20) {
+        VStack(spacing: 18) {
+            HStack(alignment: .center, spacing: 24) {
                 ZStack(alignment: .bottomTrailing) {
                     ProfilePhoto(name: page.displayName, url: account.imageURL(page.avatarPath, bucket: .avatars), size: 86)
                     if let level = page.level {
@@ -168,10 +164,7 @@ struct ProfileView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if isMe {
-                HStack(spacing: 10) {
-                    secondaryButton("Profil bearbeiten", symbol: "pencil") { showsEditor = true }
-                    secondaryButton("Beitrag", symbol: "plus") { showsComposer = true }
-                }
+                secondaryButton("Profil bearbeiten", symbol: "pencil") { showsEditor = true }
             } else {
                 HStack(spacing: 10) {
                     FollowButton(profileID: page.id, relation: $relation)
@@ -219,10 +212,10 @@ struct ProfileView: View {
             Label(title, systemImage: symbol)
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
                 .background(Color(.tertiarySystemFill), in: .capsule)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressScale)
     }
 
     // MARK: Stats strip
@@ -235,8 +228,8 @@ struct ProfileView: View {
                  tint: (page.currentStreak ?? 0) > 0 ? Theme.me : (page.currentStreak ?? 0) < 0 ? Theme.opponent : .primary)
             stat(number: Double(page.ratedMatches ?? 0), text: nil, label: "Matches")
         }
-        .padding(.vertical, 14)
-        .background(Theme.surface, in: .rect(cornerRadius: 18, style: .continuous))
+        .padding(.vertical, 18)
+        .background(Theme.surface, in: .rect(cornerRadius: 20, style: .continuous))
     }
 
     private func stat(number: Double?, text: String?, label: String, tint: Color = .primary) -> some View {

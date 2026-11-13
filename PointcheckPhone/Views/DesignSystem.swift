@@ -32,7 +32,7 @@ struct SectionTitle<Trailing: View>: View {
                 .font(.subheadline.weight(.medium))
         }
         .padding(.horizontal, 4)
-        .padding(.top, 8)
+        .padding(.top, 12)
     }
 }
 
@@ -320,8 +320,8 @@ struct PersonListRow: View {
                 FollowButton(profileID: person.profileID, relation: $relation, compact: true)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
     }
 }
 
@@ -354,8 +354,8 @@ struct EmptyState: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 24)
-        .padding(.vertical, 32)
+        .padding(.horizontal, 32)
+        .padding(.vertical, 44)
     }
 }
 
