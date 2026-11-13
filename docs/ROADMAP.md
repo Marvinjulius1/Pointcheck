@@ -57,6 +57,12 @@ Hallen und Clubs bekommen später eine Web-Ansicht.
 - ✅ Einheitliche Bausteine (Karten, Avatare, Folgen-Button, leere Zustände) statt Einstellungs-Listen
 - Offen: Push-Mitteilungen (Developer-Programm), Beiträge liken/kommentieren
 
+### Ohne Apple Watch spielbar (13.11.)
+- ✅ **Live zählen auf dem iPhone**: gleiche Rot/Grün-Felder und Zähllogik wie auf der Watch, Rückgängig, Aufschlag, Seitenwechsel, Satzball/Matchball; laufendes Match überlebt App-Neustart
+- ✅ **Ergebnis nachträglich eintragen**: Sätze, Match-Tiebreak, Partner, Gegner, Datum
+- ✅ **Siri auf dem iPhone**: „Punkt für uns in Pointcheck“, „Punkt Gegner in Pointcheck“, „Rückgängig in Pointcheck“
+- ✅ Eigene Regeln fürs iPhone in den Einstellungen; iPhone-Matches zählen wie Watch-Matches (Statistik, Upload, Bestätigung)
+
 ## Phase 4 – Hallen & Clubs (Business)
 *Web-Dashboard für Betreiber, Abo-Modell.*
 

@@ -84,19 +84,49 @@ private struct MyProfileTab: View {
     }
 }
 
-/// Shown while no match has arrived from the watch yet.
+/// Shown while there are no matches yet – with every way to add one.
 struct NoMatchesView: View {
     @Environment(WatchSync.self) private var sync
+    @Environment(PhoneMatchController.self) private var counter
+    @State private var showsCounter = false
+    @State private var showsManualEntry = false
 
     var body: some View {
-        EmptyState(
-            symbol: "applewatch",
-            title: "Noch keine Matches",
-            message: sync.isWatchAppInstalled
-                ? "Spiel ein Match mit Pointcheck auf deiner Apple Watch. Danach erscheint es hier automatisch."
-                : "Installiere Pointcheck auf deiner Apple Watch und zähle dort deine Matches.",
-            actionTitle: sync.isWatchAppInstalled ? "Von der Watch laden" : nil,
-            action: sync.isWatchAppInstalled ? { sync.requestAll() } : nil
-        )
+        VStack(spacing: 8) {
+            EmptyState(
+                symbol: "figure.tennis",
+                title: "Noch keine Matches",
+                message: sync.isWatchAppInstalled
+                    ? "Zähl auf der Apple Watch – oder direkt hier auf dem iPhone."
+                    : "Du brauchst keine Apple Watch: Zähl live auf dem iPhone oder trag ein Ergebnis nachträglich ein."
+            )
+            VStack(spacing: 10) {
+                Button { showsCounter = true } label: {
+                    Label("Live zählen", systemImage: "plus.forwardslash.minus")
+                        .font(.headline)
+                        .foregroundStyle(Theme.onAccent)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Theme.accent, in: .rect(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.pressScale)
+                Button { showsManualEntry = true } label: {
+                    Label("Ergebnis eintragen", systemImage: "square.and.pencil")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Theme.surface, in: .rect(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.pressScale)
+                if sync.isWatchAppInstalled {
+                    Button("Von der Watch laden") { sync.requestAll() }
+                        .font(.subheadline.weight(.medium))
+                        .padding(.top, 4)
+                }
+            }
+            .padding(.horizontal, 32)
+        }
+        .fullScreenCover(isPresented: $showsCounter) { LiveCounterView() }
+        .sheet(isPresented: $showsManualEntry) { ManualResultView() }
     }
 }

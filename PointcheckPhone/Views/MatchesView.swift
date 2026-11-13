@@ -6,6 +6,9 @@ struct MatchesView: View {
     @Query(sort: \StoredMatch.startDate, order: .reverse) private var stored: [StoredMatch]
     @Environment(WatchSync.self) private var sync
     @Environment(AccountService.self) private var account
+    @Environment(PhoneMatchController.self) private var counter
+    @State private var showsCounter = false
+    @State private var showsManualEntry = false
 
     private struct MonthGroup: Identifiable {
         let month: Date
@@ -64,6 +67,38 @@ struct MatchesView: View {
         }
         .background(Theme.background)
         .navigationTitle("Matches")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Live zählen", systemImage: "plus.forwardslash.minus") { showsCounter = true }
+                    Button("Ergebnis eintragen", systemImage: "square.and.pencil") { showsManualEntry = true }
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Match hinzufügen")
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if counter.state.hasStarted && !counter.state.isFinished {
+                Button { showsCounter = true } label: {
+                    HStack(spacing: 12) {
+                        Circle().fill(Theme.me).frame(width: 8, height: 8)
+                        Text("Match läuft · \(counter.state.setsWon.me):\(counter.state.setsWon.opponent) Sätze, \(counter.state.games.me):\(counter.state.games.opponent) Spiele")
+                            .font(.subheadline.weight(.semibold))
+                        Spacer()
+                        Text("Weiter").font(.subheadline.weight(.semibold))
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
+                    .background(Theme.surface, in: .capsule)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                }
+                .buttonStyle(.pressScale)
+            }
+        }
+        .fullScreenCover(isPresented: $showsCounter) { LiveCounterView() }
+        .sheet(isPresented: $showsManualEntry) { ManualResultView() }
         .profileNavigation()
         .refreshable {
             sync.requestAll()
