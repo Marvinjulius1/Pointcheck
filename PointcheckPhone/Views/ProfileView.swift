@@ -17,6 +17,8 @@ struct ProfileView: View {
     @State private var showsComposer = false
     @Environment(\.zoomNamespace) private var zoomNamespace
     @Environment(BadgeTracker.self) private var badges
+    @State private var h2h: HeadToHead?
+    @State private var showsRematch = false
 
     enum ProfileTab: String, CaseIterable, Identifiable {
         case results = "Ergebnisse", posts = "Beiträge", badges = "Erfolge"
@@ -150,6 +152,9 @@ struct ProfileView: View {
         .sheet(isPresented: $showsComposer, onDismiss: { Task { await load() } }) {
             PostComposer(match: nil)
         }
+        .sheet(isPresented: $showsRematch) {
+            if let page { RematchSheet(opponentID: page.id, opponentName: page.displayName) }
+        }
     }
 
     // MARK: Header
@@ -188,12 +193,21 @@ struct ProfileView: View {
                     }
                 }
                 if let club = page.homeClub, !club.isEmpty {
-                    Label(club, systemImage: "mappin.and.ellipse")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    NavigationLink { ClubView(club: club) } label: {
+                        Label(club, systemImage: "mappin.and.ellipse")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
                 if let bio = page.bio, !bio.isEmpty {
                     Text(bio).font(.subheadline)
+                }
+                if !isMe, let h2h, h2h.hasHistory {
+                    HeadToHeadLine(h2h: h2h, name: page.displayName) {
+                        showsRematch = true
+                    }
+                    .padding(.top, 4)
                 }
                 if page.followsMe, !isMe {
                     Text("Folgt dir")
@@ -347,6 +361,7 @@ struct ProfileView: View {
                         NavigationLink {
                             PostDetailView(post: post, authorName: page?.displayName ?? "",
                                            authorAvatar: account.imageURL(page?.avatarPath, bucket: .avatars),
+                                           authorID: profileID,
                                            canDelete: isMe, onDelete: { Task { try? await account.deletePost(post.id); await load() } })
                                 .zoomDestination(post.id, in: zoomNamespace)
                         } label: {
@@ -403,8 +418,12 @@ struct ProfileView: View {
         guard page.isVisible else { return }
         async let loadedResults = account.profileResults(profileID)
         async let loadedPosts = account.profilePosts(profileID)
+        async let loadedH2H: HeadToHead? = isMe ? nil : account.headToHead(profileID)
         results = await loadedResults
         posts = await loadedPosts
+        h2h = await loadedH2H
+        await account.loadReactions(for: posts.map(\.id))
+        await account.loadCommentCounts(posts: posts.map(\.id), matches: results.map(\.matchID))
     }
 }
 
@@ -488,15 +507,17 @@ struct PostDetailView: View {
     let post: ProfilePost
     let authorName: String
     var authorAvatar: URL?
+    var authorID: UUID?
     var canDelete = false
     var onDelete: (() -> Void)?
     @Environment(AccountService.self) private var account
 
     var body: some View {
         ScrollView {
-            PostCard(authorName: authorName, authorAvatar: authorAvatar, text: post.text,
+            PostCard(authorName: authorName, authorAvatar: authorAvatar, authorID: authorID, text: post.text,
                      imageURL: account.imageURL(post.imagePath, bucket: .posts), match: post.match,
-                     createdAt: post.createdAt, canDelete: canDelete, onDelete: onDelete)
+                     createdAt: post.createdAt, canDelete: canDelete, onDelete: onDelete,
+                     postID: authorID == DemoProfile.id ? nil : post.id, players: post.players)
                 .padding()
         }
         .background(Theme.background)
@@ -521,6 +542,8 @@ struct ResultDetailView: View {
                 if let attached {
                     ResultBanner(match: attached)
                 }
+                SocialBar(matchID: result.matchID)
+                    .padding(.horizontal, 4)
                 Card {
                     VStack(spacing: 0) {
                         ForEach(Array(result.setsFromPlayer.enumerated()), id: \.offset) { index, set in
@@ -601,6 +624,9 @@ struct PostCard: View {
     let createdAt: Date
     var canDelete = false
     var onDelete: (() -> Void)?
+    /// Post id for claps/comments (nil for the demo player).
+    var postID: UUID?
+    var players: [MentionedPlayer] = []
     @State private var confirmDelete = false
 
     var body: some View {
@@ -651,6 +677,12 @@ struct PostCard: View {
 
                 if let match {
                     MatchChip(match: match)
+                }
+                if !players.isEmpty {
+                    MentionsRow(players: players, authorSide: players.first { $0.id == authorID }?.side)
+                }
+                if let postID {
+                    SocialBar(postID: postID)
                 }
             }
             .padding(16)
@@ -873,5 +905,43 @@ extension UIImage {
         }())
         let image = renderer.image { _ in draw(in: CGRect(origin: .zero, size: target)) }
         return image.jpegData(compressionQuality: quality)
+    }
+}
+
+/// "Ihr habt 4-mal gegeneinander gespielt · Bilanz 2:2" with a rematch button.
+struct HeadToHeadLine: View {
+    let h2h: HeadToHead
+    let name: String
+    let onRematch: () -> Void
+
+    private var text: String {
+        var parts: [String] = []
+        if h2h.against > 0 {
+            parts.append("\(h2h.against)× gegeneinander · Bilanz \(h2h.myWins):\(h2h.theirWins)")
+        }
+        if h2h.together > 0 {
+            parts.append("\(h2h.together)× zusammen · \(h2h.togetherWins) Siege")
+        }
+        return parts.joined(separator: "\n")
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(text)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.secondary)
+                if let last = h2h.lastPlayed {
+                    Text("Zuletzt \(last.relativeShort)").font(.caption).foregroundStyle(.tertiary)
+                }
+            }
+            Spacer()
+            if h2h.against > 0 {
+                Button("Revanche", systemImage: "arrow.2.squarepath", action: onRematch)
+                    .buttonStyle(.quiet)
+            }
+        }
+        .padding(12)
+        .background(Theme.surface.opacity(0.6), in: .rect(cornerRadius: 14, style: .continuous))
     }
 }

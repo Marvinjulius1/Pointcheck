@@ -7,6 +7,7 @@ struct ActivityView: View {
 
     private var isEmpty: Bool {
         account.followRequests.isEmpty && account.openConfirmations.isEmpty && account.recentFollowers.isEmpty
+            && account.rematches.isEmpty
     }
 
     var body: some View {
@@ -25,6 +26,13 @@ struct ActivityView: View {
                         ForEach(Array(account.followRequests.enumerated()), id: \.element.id) { index, person in
                             if index > 0 { RowDivider(inset: 72) }
                             RequestRow(person: person)
+                        }
+                    }
+                    if !account.rematches.isEmpty {
+                        SectionTitle("Revanche")
+                        ForEach(Array(account.rematches.enumerated()), id: \.element.id) { index, request in
+                            if index > 0 { RowDivider(inset: 72) }
+                            RematchRow(request: request)
                         }
                     }
                     if !account.recentFollowers.isEmpty {

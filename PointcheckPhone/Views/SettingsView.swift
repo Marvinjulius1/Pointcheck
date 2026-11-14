@@ -8,6 +8,10 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var confirmSignOut = false
     @State private var showsPasswordSheet = false
+    @State private var confirmDelete = false
+    @State private var deleteError: String?
+    @AppStorage(GoalSettings.weeklyTargetKey) private var weeklyTarget = 3
+    @AppStorage(PushManager.enabledKey) private var pushEnabled = false
     @Environment(PhoneMatchController.self) private var counter
     @AppStorage(PhoneRules.bestOfKey) private var bestOf = 3
     @AppStorage(PhoneRules.goldenPointKey) private var goldenPoint = false
@@ -57,6 +61,25 @@ struct SettingsView: View {
             }
 
             Section {
+                Stepper("Wochenziel: \(weeklyTarget) \(weeklyTarget == 1 ? "Match" : "Matches")", value: $weeklyTarget, in: 1...14)
+            } header: {
+                Text("Motivation")
+            } footer: {
+                Text("Der Ring auf der Startseite füllt sich mit jedem gespielten Match.")
+            }
+
+            Section {
+                Toggle("Mitteilungen", isOn: $pushEnabled)
+                    .onChange(of: pushEnabled) { _, on in
+                        if on { Task { await PushManager.shared.enable() } }
+                    }
+            } header: {
+                Text("Mitteilungen")
+            } footer: {
+                Text("Bestätigungen, neue Follower, Applaus und Revanche-Anfragen. Mitteilungen außerhalb der App kommen erst, sobald die App über TestFlight oder den App Store verteilt wird.")
+            }
+
+            Section {
                 LabeledContent("E-Mail", value: account.client.auth.currentUser?.email ?? "–")
                 Button("Passwort ändern") { showsPasswordSheet = true }
             } header: {
@@ -68,6 +91,27 @@ struct SettingsView: View {
             } footer: {
                 Text("Deine Matches bleiben auf Watch und iPhone erhalten.")
             }
+        }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 6) {
+                Button("Konto löschen", role: .destructive) { confirmDelete = true }
+                    .font(.footnote)
+                if let deleteError {
+                    Text(deleteError).font(.caption).foregroundStyle(Theme.opponent)
+                }
+            }
+            .padding(.vertical, 10)
+        }
+        .confirmationDialog("Konto endgültig löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Konto und alle Daten löschen", role: .destructive) {
+                Task {
+                    do { try await account.deleteAccount(); dismiss() }
+                    catch { deleteError = "Löschen hat nicht geklappt. Prüf die Verbindung und versuch es erneut." }
+                }
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Profil, Follower, Beiträge, Kommentare und hochgeladene Matches werden vom Server gelöscht. Die Matches auf Watch und iPhone bleiben. Das lässt sich nicht rückgängig machen.")
         }
         .navigationTitle("Einstellungen")
         .sheet(isPresented: $showsPasswordSheet) { ChangePasswordSheet() }

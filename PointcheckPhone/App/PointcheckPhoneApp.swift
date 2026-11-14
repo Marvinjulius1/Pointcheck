@@ -26,9 +26,12 @@ struct PointcheckPhoneApp: App {
     @State private var counter = PhoneEnvironment.counter
     @State private var badges = PhoneEnvironment.badges
 
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     init() {
         PhoneEnvironment.sync.activate()
         PhoneEnvironment.account.start()
+        PushManager.shared.registerIfEnabled()
     }
 
     var body: some Scene {

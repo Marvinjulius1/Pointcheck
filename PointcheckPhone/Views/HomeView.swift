@@ -22,11 +22,28 @@ struct HomeView: View {
                 RatingStrip(matches: all)
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 20)
                     .revealOnAppear()
 
+                WeeklyGoalCard(matches: all)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 12)
+                    .revealOnAppear(delay: 0.05)
+
+                if let review = pendingReview {
+                    MonthReviewCard(review: review) { dismissReview(review) }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 12)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                quickLinks
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                    .revealOnAppear(delay: 0.1)
+
                 avatarRow
-                    .revealOnAppear(delay: 0.08)
+                    .revealOnAppear(delay: 0.12)
 
                 FeedDivider()
                     .padding(.top, 4)
@@ -57,6 +74,42 @@ struct HomeView: View {
         .task { await loadFollowing() }
         .sheet(isPresented: $showsComposer) { PostComposer(match: nil) }
         .profileNavigation()
+    }
+
+    // MARK: Month review (shown once, dismissible)
+
+    @AppStorage("review.dismissed") private var dismissedReview = ""
+
+    private var pendingReview: MonthReview? {
+        guard let review = PadelStats.lastMonthReview(matches) else { return nil }
+        let key = review.month.formatted(.iso8601.year().month())
+        return dismissedReview == key ? nil : review
+    }
+
+    private func dismissReview(_ review: MonthReview) {
+        withAnimation(.snappy) { dismissedReview = review.month.formatted(.iso8601.year().month()) }
+    }
+
+    private var quickLinks: some View {
+        HStack(spacing: 10) {
+            NavigationLink { GamesWantedView() } label: {
+                Label("Spieler gesucht", systemImage: "person.3")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(Theme.surface, in: .capsule)
+            }
+            .buttonStyle(.pressScale)
+            NavigationLink { CircleRankingView() } label: {
+                Label("Dein Kreis", systemImage: "list.number")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(Theme.surface, in: .capsule)
+            }
+            .buttonStyle(.pressScale)
+        }
+        .foregroundStyle(Color.primary)
     }
 
     private func loadFollowing() async {
@@ -303,12 +356,27 @@ private struct FeedEntry: View {
                 ResultBanner(match: match)
                     .padding(.horizontal, 16)
             }
+
+            if !item.players.isEmpty {
+                MentionsRow(players: item.players, authorSide: authorSide)
+                    .padding(.horizontal, 16)
+            }
+
+            if item.authorID != DemoProfile.id {
+                SocialBar(postID: item.kind == .post ? item.id : nil, matchID: item.kind == .match ? item.id : nil)
+                    .padding(.horizontal, 16)
+            }
         }
         .padding(.vertical, 18)
         .confirmationDialog("Beitrag löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Löschen", role: .destructive) { Task { try? await account.deletePost(item.id) } }
             Button("Abbrechen", role: .cancel) {}
         }
+    }
+
+    /// Side of the author within the attached match (from the linked players).
+    private var authorSide: String? {
+        item.players.first { $0.id == item.authorID }?.side
     }
 
     private var subtitle: String {
