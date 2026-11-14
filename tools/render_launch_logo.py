@@ -1,4 +1,5 @@
-# Renders the launch wordmark: "POINTCHECK" + score-pill mark, white on transparent.
+# Renders the launch wordmark: "POINTCHECK" in white + the Pointcheck logo (red/green score pills
+# taken from the app icon), on transparent.
 # Usage: python3 tools/render_launch_logo.py PointcheckPhone/Assets.xcassets/LaunchLogo.imageset (needs Pillow + Inter Display)
 import sys, json, os
 from PIL import Image, ImageDraw, ImageFont
@@ -9,6 +10,10 @@ TEXT = "POINTCHECK"
 FONT_PT = 22          # size in points
 TRACK = -0.012        # letter spacing in em
 SS = 8                # supersampling factor
+LOGO_SCALE = 1.9      # logo height relative to the cap height of the text
+ICON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "PointcheckPhone",
+                    "Assets.xcassets", "AppIcon.appiconset", "AppIcon.png")
+LOGO_BOX = (150, 170, 874, 854)   # the two pills inside the 1024 px icon
 
 def render(scale):
     k = scale * SS
@@ -22,15 +27,14 @@ def render(scale):
     widths = [font.getlength(c) for c in TEXT]
     track = TRACK * FONT_PT * k
     text_w = sum(widths) + track * (len(TEXT) - 1)
-    # mark: two stacked pills, as tall as the caps (slightly more), like the app icon
-    mark_h = cap * 1.08
-    pill_h = mark_h * 0.44
-    gap_pills = mark_h - 2 * pill_h
-    mark_w = mark_h * 1.32
+    # logo: the pills from the app icon, black corners made transparent
+    logo = Image.open(ICON).convert("RGBA").crop(LOGO_BOX)
+    mark_h = cap * LOGO_SCALE
+    mark_w = mark_h * logo.width / logo.height
     gap = cap * 0.45
     pad = 2 * k
     W = int(text_w + gap + mark_w + 2 * pad + 0.5)
-    H = int(cap * 1.08 + 2 * pad + 0.5)
+    H = int(mark_h + 2 * pad + 0.5)
     img = Image.new("RGBA", (W, H), (255, 255, 255, 0))
     d = ImageDraw.Draw(img)
     y_cap_top = pad + (H - 2 * pad - cap) / 2
@@ -40,9 +44,12 @@ def render(scale):
         x += w + track
     mx = pad + text_w + gap
     my = pad + (H - 2 * pad - mark_h) / 2
-    r = pill_h / 2
-    d.rounded_rectangle([mx, my, mx + mark_w, my + pill_h], radius=r, fill=(255, 255, 255, 255))
-    d.rounded_rectangle([mx, my + pill_h + gap_pills, mx + mark_w, my + mark_h], radius=r, fill=(255, 255, 255, 255))
+    logo = logo.resize((round(mark_w), round(mark_h)), Image.LANCZOS)
+    # black background of the icon → transparent (keeps the pill edges smooth)
+    r_, g_, b_, a_ = logo.split()
+    alpha = Image.eval(Image.merge("RGB", (r_, g_, b_)).convert("L"), lambda v: min(255, v * 4))
+    logo.putalpha(alpha)
+    img.alpha_composite(logo, (round(mx), round(my)))
     final = img.resize((max(1, round(W / SS)), max(1, round(H / SS))), Image.LANCZOS)
     return final
 
