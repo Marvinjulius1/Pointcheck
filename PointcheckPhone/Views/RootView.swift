@@ -2,59 +2,75 @@ import PadelStats
 import SwiftData
 import SwiftUI
 
-/// Black screen with the ball dropping in and the wordmark fading up – the moment between
-/// launch image and first screen. Only shown while the session is being restored.
+/// Start screen: the wordmark POINT · CHECK with the red/green score pill from the app icon.
+/// The pill counts up to 15:40 while the session is restored; a small ball bounces below.
 struct LoadingScreen: View {
-    @State private var landed = false
-    @State private var showsWordmark = false
+    @State private var top = 0
+    @State private var bottom = 0
+    @State private var shown = false
+    @State private var showsBall = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let red = LinearGradient(colors: [Color(red: 0.93, green: 0.33, blue: 0.30), Color(red: 0.72, green: 0.14, blue: 0.14)],
+                                     startPoint: .top, endPoint: .bottom)
+    private let green = LinearGradient(colors: [Color(red: 0.30, green: 0.78, blue: 0.40), Color(red: 0.10, green: 0.52, blue: 0.24)],
+                                       startPoint: .top, endPoint: .bottom)
 
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            // Faint court light behind the ball.
-            Circle()
-                .fill(Theme.lime.opacity(0.14))
-                .frame(width: 260, height: 260)
-                .blur(radius: 70)
-                .opacity(landed ? 1 : 0)
-            VStack(spacing: 26) {
-                if landed {
-                    BouncingBall(size: 48)
-                        .frame(height: 100)
-                        .transition(.identity)
-                } else {
-                    Image(systemName: "tennisball.fill")
-                        .font(.system(size: 48, weight: .semibold))
-                        .foregroundStyle(Theme.ball)
-                        .frame(height: 100)
-                        .offset(y: -320)
-                        .transition(.identity)
+            VStack(spacing: 36) {
+                HStack(spacing: 10) {
+                    Text("POINT")
+                    pill
+                    Text("CHECK")
                 }
-                VStack(spacing: 8) {
-                    Text("Pointcheck")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text("Jeder Punkt zählt.")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
-                .opacity(showsWordmark ? 1 : 0)
-                .offset(y: showsWordmark ? 0 : 12)
+                .font(.system(size: 40, weight: .heavy, design: .default))
+                .foregroundStyle(.white)
+                .scaleEffect(shown ? 1 : 0.92)
+                .opacity(shown ? 1 : 0)
+
+                BallLoader(size: 16)
+                    .opacity(showsBall ? 1 : 0)
             }
         }
-        .task {
-            if reduceMotion {
-                landed = true
-                showsWordmark = true
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(60))
-            withAnimation(.interpolatingSpring(stiffness: 170, damping: 11)) { landed = true }
-            try? await Task.sleep(for: .milliseconds(380))
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.85)) { showsWordmark = true }
-        }
+        .task { await play() }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Pointcheck wird geladen")
+    }
+
+    /// Two stacked capsules: red 15 on top, green 40 below, like the app icon.
+    private var pill: some View {
+        VStack(spacing: 3) {
+            score(top, fill: red)
+            score(bottom, fill: green)
+        }
+    }
+
+    private func score(_ value: Int, fill: LinearGradient) -> some View {
+        Text("\(value)")
+            .font(.system(size: 17, weight: .bold, design: .rounded).monospacedDigit())
+            .foregroundStyle(.white)
+            .contentTransition(.numericText(value: Double(value)))
+            .frame(width: 60, height: 26)
+            .background(fill, in: .capsule)
+            .overlay(Capsule().stroke(.white.opacity(0.18), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.4), radius: 3, y: 2)
+    }
+
+    private func play() async {
+        if reduceMotion {
+            top = 15; bottom = 40; shown = true; showsBall = true
+            return
+        }
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.8)) { shown = true }
+        try? await Task.sleep(for: .milliseconds(350))
+        // Tennis points, like a rally: 15 · 15 · 30 · 40
+        for (a, b) in [(15, 0), (15, 15), (15, 30), (15, 40)] {
+            withAnimation(.snappy(duration: 0.25)) { top = a; bottom = b }
+            try? await Task.sleep(for: .milliseconds(220))
+        }
+        withAnimation(.easeOut(duration: 0.4)) { showsBall = true }
     }
 }
 
