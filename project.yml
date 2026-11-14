@@ -118,7 +118,11 @@ targets:
         CFBundleDisplayName: Pointcheck
         CFBundleDevelopmentRegion: de
         LSRequiresIPhoneOS: true
-        UILaunchScreen: {}
+        # Black start screen with the POINTCHECK wordmark (tools/render_launch_logo.py).
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: LaunchLogo
+          UIImageRespectsSafeAreaInsets: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         # pointcheck://login – the sign-in link in the e-mail opens the app.

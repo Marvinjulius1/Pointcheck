@@ -4,13 +4,14 @@ import SwiftUI
 /// The app is only usable with an account: welcome screen until signed in.
 struct AppGate: View {
     @Environment(AccountService.self) private var account
+    /// The start screen stays at least a moment, so it does not just flash.
+    @State private var splashHeld = true
 
     var body: some View {
         ZStack {
             switch account.state {
             case .loading:
-                Theme.background.ignoresSafeArea()
-                ProgressView()
+                Color("LaunchBackground").ignoresSafeArea()
             case .signedOut:
                 WelcomeView()
                     .transition(.opacity)
@@ -23,6 +24,30 @@ struct AppGate: View {
             }
         }
         .animation(.smooth(duration: 0.4), value: account.state == .signedIn)
+        .overlay {
+            if splashHeld || account.state == .loading {
+                SplashView()
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.35), value: splashHeld || account.state == .loading)
+        .task {
+            try? await Task.sleep(for: .milliseconds(700))
+            splashHeld = false
+        }
+    }
+}
+
+/// Continues the system launch screen (same black and the same wordmark image, centred
+/// on the whole screen), then fades into the app.
+struct SplashView: View {
+    var body: some View {
+        ZStack {
+            Color("LaunchBackground")
+            Image("LaunchLogo")
+                .accessibilityLabel("Pointcheck")
+        }
+        .ignoresSafeArea()
     }
 }
 
