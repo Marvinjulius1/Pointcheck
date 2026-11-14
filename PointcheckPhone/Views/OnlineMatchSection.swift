@@ -14,51 +14,55 @@ struct OnlineMatchSection: View {
     private var status: RemoteMatchStatus? { account.uploads[match.id] }
 
     var body: some View {
-        Section {
+        FormGroup(title: "Spielstärke", note: note) {
             if account.foreignIDs.contains(match.id) {
-                Label("Von einem Mitspieler eingetragen und bestätigt. Es zählt für deine Spielstärke.",
-                      systemImage: "checkmark.seal.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                FormRow(symbol: "checkmark.seal.fill", tint: Theme.lime, title: "Bestätigt",
+                        subtitle: "Von einem Mitspieler eingetragen. Zählt für deine Spielstärke.") { EmptyView() }
             } else if !match.isDecided {
-                Text("Nur entschiedene Matches können eingetragen werden.")
-                    .foregroundStyle(.secondary)
-            } else if let status, status != .pending {
-                LabeledContent("Status", value: status.title)
+                FormRow(symbol: "hourglass", title: "Nicht entschieden",
+                        subtitle: "Nur entschiedene Matches können eingetragen werden.") { EmptyView() }
             } else {
                 if let status {
-                    LabeledContent("Status", value: status.title)
-                }
-                TextField("Partner: @benutzername oder Name", text: $partner)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                TextField("Gegner 1: @benutzername oder Name", text: $opponent1)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                TextField("Gegner 2: @benutzername oder Name", text: $opponent2)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                if let errorText {
-                    Text(errorText).font(.footnote).foregroundStyle(Theme.opponent)
-                }
-                Button {
-                    Task { await upload() }
-                } label: {
-                    HStack {
-                        Text(status == nil ? "Eintragen & bestätigen lassen" : "Spieler aktualisieren")
-                        if isUploading { Spacer(); ProgressView() }
+                    FormRow(symbol: status == .confirmed ? "checkmark.seal.fill" : status == .disputed ? "xmark.seal.fill" : "clock.fill",
+                            tint: status == .confirmed ? Theme.lime : status == .disputed ? Theme.opponent : Theme.surfaceRaised,
+                            title: "Status") {
+                        StatusChip(text: status.title, on: status == .confirmed)
                     }
                 }
-                .disabled(isUploading)
-            }
-        } header: {
-            Text("Spielstärke")
-        } footer: {
-            if !account.foreignIDs.contains(match.id), status == nil || status == .pending {
-                Text("Mit @ verlinkst du ein Konto – dieser Gegner bestätigt das Ergebnis in seiner App. Namen ohne @ werden nur als Gast gespeichert.")
+                if status == nil || status == .pending {
+                    if status != nil { RowDivider() }
+                    InputRow(label: "Partner", placeholder: "@benutzername oder Name", text: $partner, symbol: "person.2.fill", lowercase: true)
+                    RowDivider()
+                    InputRow(label: "Gegner 1", placeholder: "@benutzername oder Name", text: $opponent1, symbol: "person.fill.xmark", lowercase: true)
+                    RowDivider()
+                    InputRow(label: "Gegner 2", placeholder: "@benutzername oder Name", text: $opponent2, symbol: "person.fill.xmark", lowercase: true)
+                    if let errorText {
+                        FormError(text: errorText).padding(.horizontal, 16).padding(.bottom, 8)
+                    }
+                    RowDivider(inset: 16)
+                    Button {
+                        Task { await upload() }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if isUploading { BallLoader(size: 12) }
+                            Text(status == nil ? "Eintragen & bestätigen lassen" : "Spieler aktualisieren")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.pressScale)
+                    .foregroundStyle(Theme.lime)
+                    .disabled(isUploading)
+                }
             }
         }
         .onAppear(perform: prefill)
+    }
+
+    private var note: String? {
+        guard !account.foreignIDs.contains(match.id), match.isDecided, status == nil || status == .pending else { return nil }
+        return "Mit @ verlinkst du ein Konto – dieser Gegner bestätigt das Ergebnis in seiner App. Namen ohne @ werden nur als Gast gespeichert."
     }
 
     private func prefill() {

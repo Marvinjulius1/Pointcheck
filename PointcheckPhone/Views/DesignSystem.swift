@@ -780,3 +780,52 @@ struct AvatarBubble: View {
         }
     }
 }
+
+
+// MARK: - Ball as a brand moment
+
+/// A ball drops from above, bounces once on the content and rolls out – shown briefly after
+/// something succeeded (match saved, post published). Nothing else in the app uses this motion.
+struct BallDrop: ViewModifier {
+    let trigger: Int
+    @State private var phase = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if phase > 0 {
+                    GeometryReader { proxy in
+                        Image(systemName: "tennisball.fill")
+                            .font(.system(size: 34))
+                            .foregroundStyle(Theme.lime)
+                            .shadow(color: Theme.lime.opacity(0.5), radius: 12)
+                            .scaleEffect(x: phase == 2 ? 1.15 : 1, y: phase == 2 ? 0.85 : 1)
+                            .position(x: proxy.size.width / 2 + (phase == 3 ? proxy.size.width : 0),
+                                      y: phase == 1 ? -40 : proxy.size.height * 0.42)
+                            .rotationEffect(.degrees(phase == 3 ? 540 : 0))
+                            .opacity(phase == 3 ? 0 : 1)
+                    }
+                    .allowsHitTesting(false)
+                }
+            }
+            .onChange(of: trigger) { _, _ in
+                guard !reduceMotion else { return }
+                Task { @MainActor in
+                    phase = 1
+                    try? await Task.sleep(for: .milliseconds(20))
+                    withAnimation(.easeIn(duration: 0.32)) { phase = 2 }
+                    try? await Task.sleep(for: .milliseconds(340))
+                    withAnimation(.easeOut(duration: 0.5)) { phase = 3 }
+                    try? await Task.sleep(for: .milliseconds(520))
+                    phase = 0
+                }
+            }
+            .sensoryFeedback(.success, trigger: trigger)
+    }
+}
+
+extension View {
+    /// Plays the ball drop whenever `trigger` changes.
+    func ballDrop(trigger: Int) -> some View { modifier(BallDrop(trigger: trigger)) }
+}

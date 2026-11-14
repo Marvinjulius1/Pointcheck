@@ -182,81 +182,148 @@ struct MatchDetailView: View {
     private var workout: WorkoutMetrics? { health.metrics[match.id] }
 
     var body: some View {
-        List {
-            Section {
-                VStack(spacing: 8) {
-                    HStack(spacing: 6) {
-                        Text("\(match.setsWon.me)").foregroundStyle(Theme.me)
-                        Text(":").foregroundStyle(.secondary)
-                        Text("\(match.setsWon.opponent)").foregroundStyle(Theme.opponent)
-                    }
-                    .font(Theme.scoreFont(size: 56))
-                    ResultBadge(result: match.result)
-                }
-                .frame(maxWidth: .infinity)
-                .listRowBackground(Color.clear)
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: Theme.Spacing.section) {
+                hero
 
-            Section("Sätze") {
-                ForEach(Array(match.sets.enumerated()), id: \.offset) { index, set in
-                    HStack {
-                        Text(set.isSuperTiebreak ? "Match-Tiebreak" : "Satz \(index + 1)")
-                        Spacer()
-                        Text(set.resultText)
-                            .font(Theme.scoreFont(size: 17))
-                            .foregroundStyle(set.winner == .me ? Theme.me : set.winner == .opponent ? Theme.opponent : .primary)
-                        if let tiebreak = set.tiebreak, !set.isSuperTiebreak {
-                            Text("(\(tiebreak.me):\(tiebreak.opponent))")
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(.secondary)
+                FormGroup(title: "Spieler") {
+                    FormRow(symbol: "person.2.fill", tint: Theme.lime, title: "Partner") {
+                        Text(match.partnerName.isEmpty ? "–" : match.partnerName).foregroundStyle(.secondary)
+                    }
+                    RowDivider()
+                    FormRow(symbol: "person.fill.xmark", tint: Theme.opponent, title: "Gegner") {
+                        Text(match.opponentName.isEmpty ? "–" : match.opponentName).foregroundStyle(.secondary)
+                    }
+                }
+
+                if let workout {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Eyebrow(text: "Training")
+                        Card {
+                            HStack(spacing: 0) {
+                                NumberTile(value: workout.duration / 60, label: "Minuten")
+                                tileDivider
+                                NumberTile(value: workout.activeEnergy ?? 0, label: "kcal", detail: "aktiv", delay: 0.08)
+                                tileDivider
+                                NumberTile(value: workout.averageHeartRate ?? 0, label: "bpm",
+                                           detail: workout.maxHeartRate.map { "max. \(Int($0.rounded()))" }, delay: 0.16)
+                            }
+                            .padding(.vertical, 14)
                         }
                     }
                 }
-            }
 
-            Section("Spieler") {
-                LabeledContent("Gegner", value: match.opponentName.isEmpty ? "–" : match.opponentName)
-                LabeledContent("Partner", value: match.partnerName.isEmpty ? "–" : match.partnerName)
-            }
-
-            if let workout {
-                Section("Training") {
-                    LabeledContent("Trainingsdauer", value: workout.duration.durationText)
-                    if let energy = workout.activeEnergy {
-                        LabeledContent("Aktive Energie", value: "\(Int(energy.rounded())) kcal")
+                FormGroup(title: "Details") {
+                    FormRow(symbol: "calendar", title: "Datum") {
+                        Text(match.startDate.formatted(date: .long, time: .shortened)).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
                     }
-                    if let average = workout.averageHeartRate {
-                        LabeledContent("Ø Herzfrequenz", value: "\(Int(average.rounded())) bpm")
+                    if let duration = match.duration {
+                        RowDivider()
+                        FormRow(symbol: "stopwatch", title: "Dauer") {
+                            Text(duration.durationText).foregroundStyle(.secondary)
+                        }
                     }
-                    if let max = workout.maxHeartRate {
-                        LabeledContent("Max. Herzfrequenz", value: "\(Int(max.rounded())) bpm")
+                    RowDivider()
+                    FormRow(symbol: "list.number", title: "Modus") {
+                        Text(match.goldenPoint ? "\(match.modeText) · Golden Point" : match.modeText).foregroundStyle(.secondary)
                     }
                 }
-            }
 
-            Section("Details") {
-                LabeledContent("Datum", value: match.startDate.formatted(date: .long, time: .shortened))
-                if let duration = match.duration {
-                    LabeledContent("Dauer", value: duration.durationText)
+                OnlineMatchSection(match: match)
+
+                HStack(spacing: 10) {
+                    Button {
+                        showsComposer = true
+                    } label: {
+                        Label("Als Beitrag", systemImage: "square.and.pencil")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.onAccent)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Theme.accent, in: .capsule)
+                    }
+                    .buttonStyle(.pressScale)
+                    ShareResultButton(match: match, workout: workout)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Theme.surface, in: .capsule)
+                        .overlay(Capsule().stroke(Theme.hairline, lineWidth: 1))
                 }
-                LabeledContent("Modus", value: match.goldenPoint ? "\(match.modeText) · Golden Point" : match.modeText)
+                FormNote(text: "Namen änderst du auf der Watch im Verlauf. Die Änderung erscheint dann automatisch hier.")
             }
-
-            OnlineMatchSection(match: match)
-
-            Section {
-                Button {
-                    showsComposer = true
-                } label: {
-                    Label("Als Beitrag teilen", systemImage: "square.and.pencil")
-                }
-                ShareResultButton(match: match, workout: workout)
-            } footer: {
-                Text("Namen änderst du auf der Watch im Verlauf. Die Änderung erscheint dann automatisch hier.")
-            }
+            .padding(.horizontal, Theme.Spacing.page)
+            .padding(.bottom, 40)
         }
+        .scrollDismissesKeyboard(.interactively)
+        .background(Theme.background)
         .sheet(isPresented: $showsComposer) { PostComposer(match: match) }
         .navigationTitle(match.title)
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// Big result on top, each set as a line with the ball by the winner.
+    private var hero: some View {
+        let won = match.winner == .me
+        let tint: Color = match.winner == nil ? .secondary : won ? Theme.lime : Theme.opponent
+        return VStack(spacing: 18) {
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    CountUpText(value: Double(match.setsWon.me))
+                        .foregroundStyle(won ? Theme.lime : .primary)
+                    Text(":").foregroundStyle(.tertiary)
+                    CountUpText(value: Double(match.setsWon.opponent), delay: 0.1)
+                        .foregroundStyle(match.winner == .opponent ? Theme.opponent : .primary)
+                }
+                .font(Theme.scoreFont(size: 72))
+                Text(match.result.title)
+                    .font(.system(size: 12, weight: .heavy, design: .rounded)).tracking(1.6)
+                    .textCase(.uppercase)
+                    .foregroundStyle(match.winner == nil ? Color.secondary : Theme.onAccent)
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(match.winner == nil ? Theme.surfaceRaised : tint, in: .capsule)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 8)
+
+            VStack(spacing: 0) {
+                ForEach(Array(match.sets.enumerated()), id: \.offset) { index, set in
+                    if index > 0 { RowDivider(inset: 16) }
+                    HStack(spacing: 12) {
+                        Image(systemName: "tennisball.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.lime)
+                            .opacity(set.winner == .me ? 1 : 0)
+                        Text(set.isSuperTiebreak ? "Match-Tiebreak" : "Satz \(index + 1)")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if let tiebreak = set.tiebreak, !set.isSuperTiebreak {
+                            Text("(\(tiebreak.me):\(tiebreak.opponent))")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.tertiary)
+                        }
+                        Text(set.resultText)
+                            .font(Theme.scoreFont(size: 20))
+                            .foregroundStyle(set.winner == .me ? Theme.lime : set.winner == .opponent ? Theme.opponent : .primary)
+                        Image(systemName: "tennisball.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.opponent)
+                            .opacity(set.winner == .opponent ? 1 : 0)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .revealOnAppear(delay: 0.1 + Double(index) * 0.06)
+                }
+            }
+            .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
+        }
+    }
+
+    private var tileDivider: some View {
+        Rectangle().fill(Theme.hairline).frame(width: 1, height: 36)
     }
 }

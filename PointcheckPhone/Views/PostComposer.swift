@@ -17,6 +17,7 @@ struct PostComposer: View {
     @State private var isPosting = false
     @State private var errorText: String?
     @FocusState private var focused: Bool
+    @State private var posted = 0
 
     private let limit = 500
 
@@ -110,6 +111,7 @@ struct PostComposer: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
             }
             .onChange(of: photoItem) { _, item in Task { await loadPhoto(item) } }
+            .ballDrop(trigger: posted)
             .onAppear {
                 attachMatch = canAttachMatch
                 focused = true
@@ -225,7 +227,9 @@ struct PostComposer: View {
         defer { isPosting = false }
         do {
             try await account.createPost(text: text, image: photoData, matchID: attachMatch && canAttachMatch ? match?.id : nil)
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            posted += 1
+            focused = false
+            try? await Task.sleep(for: .milliseconds(850))
             dismiss()
         } catch {
             errorText = "Der Beitrag konnte nicht gespeichert werden. Versuch es noch einmal."

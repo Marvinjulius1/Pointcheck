@@ -21,7 +21,10 @@ struct StatsView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
+                        RatingHero(matches: all)
+                            .revealOnAppear()
                         statistics(overview)
+                            .revealOnAppear(delay: 0.05)
                         healthSection
                         activitySection(all)
                         peopleSection(title: "Beste Partner", records: PadelStats.partners(all), mode: .partners)
@@ -47,44 +50,41 @@ struct StatsView: View {
 
     // MARK: Statistics
 
+    /// Win rate as a ring, form as a row of balls, the rest as quiet count-up numbers.
     private func statistics(_ overview: StatsOverview) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionTitle("Statistik")
+        let decided = matches.filter(\.isDecided).sorted { $0.startDate > $1.startDate }
+        return VStack(alignment: .leading, spacing: 10) {
+            SectionTitle("Bilanz")
+            HStack(spacing: 10) {
+                Card {
+                    WinRateRing(rate: overview.winRate ?? 0, wins: overview.wins, losses: overview.losses)
+                        .padding(16)
+                }
+                Card {
+                    FormBalls(results: decided.prefix(10).map { $0.winner == .me }, streak: overview.currentStreak,
+                              record: overview.longestWinStreak)
+                        .padding(16)
+                }
+            }
             Card {
-                MetricRow(
-                    symbol: "percent", tint: Theme.me, title: "Siegquote",
-                    subtitle: "\(overview.wins) Siege · \(overview.losses) Niederlagen",
-                    value: overview.winRate?.percentText ?? "–"
-                )
-                RowDivider()
-                MetricRow(
-                    symbol: overview.currentStreak >= 0 ? "flame.fill" : "cloud.rain.fill",
-                    tint: overview.currentStreak > 0 ? Theme.lime : Theme.surfaceRaised,
-                    title: "Aktuelle Serie",
-                    subtitle: "Rekord: \(overview.longestWinStreak) Siege in Folge",
-                    value: streakText(overview.currentStreak),
-                    valueTint: overview.currentStreak > 0 ? Theme.me : overview.currentStreak < 0 ? Theme.opponent : .primary,
-                    fire: overview.currentStreak >= 5 ? 2 : overview.currentStreak >= 3 ? 1 : 0
-                )
-                RowDivider()
-                MetricRow(
-                    symbol: "figure.tennis", tint: Theme.surfaceRaised, title: "Matches",
-                    subtitle: overview.totalPlayTime > 0 ? "\(overview.totalPlayTime.durationText) gespielt" : nil,
-                    value: "\(overview.matchesPlayed)"
-                )
-                RowDivider()
-                MetricRow(
-                    symbol: "square.stack.fill", tint: Theme.surfaceRaised, title: "Sätze",
-                    value: "\(overview.setsWon):\(overview.setsLost)"
-                )
-                RowDivider()
-                MetricRow(
-                    symbol: "scope", tint: Theme.surfaceRaised, title: "Tiebreaks",
-                    subtitle: overview.tiebreakWinRate.map { "\($0.percentText) gewonnen" },
-                    value: "\(overview.tiebreaksWon):\(overview.tiebreaksLost)"
-                )
+                HStack(spacing: 0) {
+                    NumberTile(value: Double(overview.matchesPlayed), label: "Matches",
+                               detail: overview.totalPlayTime > 0 ? overview.totalPlayTime.durationText : nil)
+                    tileDivider
+                    NumberTile(value: Double(overview.setsWon), label: "Sätze", detail: "\(overview.setsLost) verloren",
+                               delay: 0.08)
+                    tileDivider
+                    NumberTile(value: Double(overview.tiebreaksWon), label: "Tiebreaks",
+                               detail: overview.tiebreakWinRate.map { "\($0.percentText) gewonnen" } ?? "\(overview.tiebreaksLost) verloren",
+                               delay: 0.16)
+                }
+                .padding(.vertical, 14)
             }
         }
+    }
+
+    private var tileDivider: some View {
+        Rectangle().fill(Theme.hairline).frame(width: 1, height: 36)
     }
 
     private func streakText(_ streak: Int) -> String {
@@ -417,5 +417,126 @@ struct PersonRecordRow: View {
             }
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+
+// MARK: - Visual tiles
+
+/// Animated ring that draws to the win rate, number counting up inside.
+struct WinRateRing: View {
+    let rate: Double
+    let wins: Int
+    let losses: Int
+    @State private var shown: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(spacing: 10) {
+            ZStack {
+                Circle().stroke(Theme.surfaceRaised, lineWidth: 9)
+                Circle()
+                    .trim(from: 0, to: shown)
+                    .stroke(Theme.lime, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Circle()
+                    .trim(from: shown, to: 1)
+                    .stroke(Theme.opponent.opacity(0.55), style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .opacity(shown > 0 ? 1 : 0)
+                VStack(spacing: 0) {
+                    CountUpText(value: rate * 100, format: { "\(Int($0.rounded()))" })
+                        .font(.system(size: 26, weight: .bold, design: .rounded).monospacedDigit())
+                    Text("%").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 92, height: 92)
+            VStack(spacing: 2) {
+                Text("Siegquote").font(.footnote.weight(.semibold))
+                HStack(spacing: 4) {
+                    Text("\(wins)").foregroundStyle(Theme.lime)
+                    Text("·").foregroundStyle(.tertiary)
+                    Text("\(losses)").foregroundStyle(Theme.opponent)
+                }
+                .font(.caption.weight(.bold).monospacedDigit())
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .onAppear {
+            withAnimation(reduceMotion ? nil : .spring(response: 1.1, dampingFraction: 0.85).delay(0.1)) { shown = rate }
+        }
+        .onChange(of: rate) { _, new in withAnimation(.snappy) { shown = new } }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Siegquote \(Int((rate * 100).rounded())) Prozent, \(wins) Siege, \(losses) Niederlagen")
+    }
+}
+
+/// The last ten results as balls: lime = won, red = lost. Newest on the right, dropping in one by one.
+struct FormBalls: View {
+    let results: [Bool]
+    let streak: Int
+    let record: Int
+    @State private var appeared = false
+
+    var body: some View {
+        VStack(spacing: 10) {
+            VStack(spacing: 6) {
+                ForEach(0..<2, id: \.self) { row in
+                    HStack(spacing: 6) {
+                        ForEach(0..<5, id: \.self) { column in
+                            let index = row * 5 + column
+                            let ordered = Array(results.reversed())
+                            Image(systemName: "tennisball.fill")
+                                .font(.system(size: 17))
+                                .foregroundStyle(index < ordered.count ? (ordered[index] ? Theme.lime : Theme.opponent) : Theme.surfaceRaised)
+                                .scaleEffect(appeared ? 1 : 0.2)
+                                .opacity(appeared ? 1 : 0)
+                                .animation(.spring(response: 0.45, dampingFraction: 0.6).delay(Double(index) * 0.04), value: appeared)
+                        }
+                    }
+                }
+            }
+            .frame(height: 92 - 46, alignment: .center)
+            .frame(height: 92)
+            VStack(spacing: 2) {
+                Text(streakTitle).font(.footnote.weight(.semibold))
+                    .foregroundStyle(streak > 0 ? Theme.lime : streak < 0 ? Theme.opponent : .primary)
+                Text("Rekord \(record) in Folge").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .onAppear { appeared = true }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Letzte \(results.count) Matches: \(results.filter { $0 }.count) Siege. \(streakTitle).")
+    }
+
+    private var streakTitle: String {
+        switch streak {
+        case 0: "Keine Serie"
+        case 1: "1 Sieg in Folge"
+        case 2...: "\(streak) Siege in Folge"
+        case -1: "1 Niederlage"
+        default: "\(-streak) Niederlagen in Folge"
+        }
+    }
+}
+
+/// Count-up number with a label, for a row of three.
+struct NumberTile: View {
+    let value: Double
+    let label: String
+    var detail: String?
+    var delay: Double = 0
+
+    var body: some View {
+        VStack(spacing: 3) {
+            CountUpText(value: value, delay: delay)
+                .font(.system(size: 26, weight: .bold, design: .rounded).monospacedDigit())
+            Text(label).font(.footnote.weight(.semibold))
+            if let detail {
+                Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }

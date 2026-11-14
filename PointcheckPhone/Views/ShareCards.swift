@@ -6,8 +6,13 @@ import SwiftUI
 
 private enum ShareStyle {
     static let width: CGFloat = 360
-    static let background = LinearGradient(colors: [Color(red: 0.10, green: 0.12, blue: 0.16), .black],
-                                           startPoint: .top, endPoint: .bottom)
+    static var background: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.black
+            Circle().fill(Theme.lime.opacity(0.28)).frame(width: 320, height: 320).blur(radius: 90).offset(x: 120, y: -140)
+        }
+        .clipped()
+    }
     static let text = Color.white
     static let muted = Color.white.opacity(0.65)
 }
@@ -70,6 +75,7 @@ struct ProfileShareCard: View {
             }
             .padding(.vertical, 16)
             .background(Color.white.opacity(0.08), in: .rect(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.white.opacity(0.1), lineWidth: 1))
 
             Spacer(minLength: 0)
 
@@ -81,7 +87,7 @@ struct ProfileShareCard: View {
         }
         .padding(28)
         .frame(width: ShareStyle.width, height: ShareStyle.width * 1.25)
-        .background(ShareStyle.background)
+        .background { ShareStyle.background }
     }
 
     private func number(_ value: String, _ label: String) -> some View {
@@ -170,7 +176,8 @@ struct PostShareCard: View {
                         .foregroundStyle(tint)
                 }
                 .padding(16)
-                .background(tint.opacity(0.16), in: .rect(cornerRadius: 18, style: .continuous))
+                .background(Color.white.opacity(0.08), in: .rect(cornerRadius: 18, style: .continuous))
+                .overlay(alignment: .leading) { Capsule().fill(tint).frame(width: 4).padding(.vertical, 14).padding(.leading, 6) }
             }
 
             HStack {
@@ -182,7 +189,7 @@ struct PostShareCard: View {
         }
         .padding(28)
         .frame(width: ShareStyle.width)
-        .background(ShareStyle.background)
+        .background { ShareStyle.background }
     }
 }
 

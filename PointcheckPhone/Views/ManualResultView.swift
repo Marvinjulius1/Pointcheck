@@ -10,6 +10,7 @@ struct ManualResultView: View {
     @State private var partner = ""
     @State private var opponent = ""
     @State private var errorText: String?
+    @State private var saved = 0
 
     struct SetEntry: Identifiable {
         let id = UUID()
@@ -86,6 +87,7 @@ struct ManualResultView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
             }
+            .ballDrop(trigger: saved)
         }
     }
 
@@ -104,8 +106,11 @@ struct ManualResultView: View {
             superTiebreak: setScores.contains { $0.isSuperTiebreak }
         )
         MatchStore(context: modelContext).upsert([summary])
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        dismiss()
+        saved += 1
+        Task {
+            try? await Task.sleep(for: .milliseconds(850))
+            dismiss()
+        }
     }
 }
 
