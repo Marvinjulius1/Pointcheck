@@ -3,14 +3,13 @@ import SwiftData
 import SwiftUI
 
 /// Start screen: the wordmark POINT · CHECK with the red/green score pill from the app icon.
-/// The pill counts up to 15:40 while the session is restored; a small ball bounces below.
+/// The pill counts up to 15:40; the screen stays for two seconds.
 struct LoadingScreen: View {
-    /// Called once the intro has played (about 2.5 seconds).
+    /// Called once the intro has played (2 seconds).
     var onFinished: () -> Void = {}
     @State private var top = 0
     @State private var bottom = 0
     @State private var shown = false
-    @State private var showsBall = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let red = LinearGradient(colors: [Color(red: 0.93, green: 0.33, blue: 0.30), Color(red: 0.72, green: 0.14, blue: 0.14)],
@@ -31,9 +30,6 @@ struct LoadingScreen: View {
                 .foregroundStyle(.white)
                 .scaleEffect(shown ? 1 : 0.92)
                 .opacity(shown ? 1 : 0)
-
-                BallLoader(size: 16)
-                    .opacity(showsBall ? 1 : 0)
             }
         }
         .task { await play() }
@@ -61,21 +57,21 @@ struct LoadingScreen: View {
     }
 
     private func play() async {
+        // Total: 2 seconds. Fade in 0.4 s, four quick counts 0.6 s, hold 1 s.
         if reduceMotion {
-            top = 15; bottom = 40; shown = true; showsBall = true
-            try? await Task.sleep(for: .seconds(1.2))
+            top = 15; bottom = 40; shown = true
+            try? await Task.sleep(for: .seconds(2))
             onFinished()
             return
         }
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) { shown = true }
-        try? await Task.sleep(for: .milliseconds(600))
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { shown = true }
+        try? await Task.sleep(for: .milliseconds(400))
         // Tennis points, like a rally: 15 · 15 · 30 · 40
         for (a, b) in [(15, 0), (15, 15), (15, 30), (15, 40)] {
-            withAnimation(.snappy(duration: 0.3)) { top = a; bottom = b }
-            try? await Task.sleep(for: .milliseconds(380))
+            withAnimation(.snappy(duration: 0.12)) { top = a; bottom = b }
+            try? await Task.sleep(for: .milliseconds(150))
         }
-        withAnimation(.easeOut(duration: 0.4)) { showsBall = true }
-        try? await Task.sleep(for: .milliseconds(700))
+        try? await Task.sleep(for: .milliseconds(1000))
         onFinished()
     }
 }
