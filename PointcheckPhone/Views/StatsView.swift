@@ -59,7 +59,7 @@ struct StatsView: View {
                 RowDivider()
                 MetricRow(
                     symbol: overview.currentStreak >= 0 ? "flame.fill" : "cloud.rain.fill",
-                    tint: overview.currentStreak >= 0 ? .orange : .gray,
+                    tint: overview.currentStreak > 0 ? Theme.lime : Theme.surfaceRaised,
                     title: "Aktuelle Serie",
                     subtitle: "Rekord: \(overview.longestWinStreak) Siege in Folge",
                     value: streakText(overview.currentStreak),
@@ -68,18 +68,18 @@ struct StatsView: View {
                 )
                 RowDivider()
                 MetricRow(
-                    symbol: "figure.tennis", tint: .blue, title: "Matches",
+                    symbol: "figure.tennis", tint: Theme.surfaceRaised, title: "Matches",
                     subtitle: overview.totalPlayTime > 0 ? "\(overview.totalPlayTime.durationText) gespielt" : nil,
                     value: "\(overview.matchesPlayed)"
                 )
                 RowDivider()
                 MetricRow(
-                    symbol: "square.stack.fill", tint: .indigo, title: "Sätze",
+                    symbol: "square.stack.fill", tint: Theme.surfaceRaised, title: "Sätze",
                     value: "\(overview.setsWon):\(overview.setsLost)"
                 )
                 RowDivider()
                 MetricRow(
-                    symbol: "scope", tint: .purple, title: "Tiebreaks",
+                    symbol: "scope", tint: Theme.surfaceRaised, title: "Tiebreaks",
                     subtitle: overview.tiebreakWinRate.map { "\($0.percentText) gewonnen" },
                     value: "\(overview.tiebreaksWon):\(overview.tiebreaksLost)"
                 )
@@ -106,7 +106,7 @@ struct StatsView: View {
                 SectionTitle("Training")
                 Card {
                     HStack(alignment: .top, spacing: 14) {
-                        IconTile(symbol: "heart.fill", tint: .pink)
+                        IconTile(symbol: "heart.fill", tint: Theme.opponent)
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Herzfrequenz und Kalorien zu jedem Match – aufgezeichnet von deiner Apple Watch.")
                                 .font(.subheadline)
@@ -127,13 +127,13 @@ struct StatsView: View {
                     SectionTitle("Training")
                     Card {
                         MetricRow(
-                            symbol: "flame.fill", tint: .orange, title: "Aktive Energie",
+                            symbol: "flame.fill", tint: Theme.lime, title: "Aktive Energie",
                             subtitle: "in \(totals.matchesWithData) Matches",
                             value: "\(Int(totals.activeEnergy.rounded()).formatted()) kcal"
                         )
                         RowDivider()
                         MetricRow(
-                            symbol: "heart.fill", tint: .pink, title: "Ø Herzfrequenz",
+                            symbol: "heart.fill", tint: Theme.opponent, title: "Ø Herzfrequenz",
                             subtitle: totals.maxHeartRate.map { "Maximum \(Int($0.rounded())) bpm" },
                             value: totals.averageHeartRate.map { "\(Int($0.rounded())) bpm" } ?? "–"
                         )

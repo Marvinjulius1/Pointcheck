@@ -40,9 +40,13 @@ struct MatchesView: View {
                             Text(group.month.formatted(.dateTime.month(.wide).year()))
                                 .font(.title3.weight(.bold))
                             Spacer()
-                            Text("\(wins) S · \(losses) N")
-                                .font(.subheadline.weight(.medium).monospacedDigit())
-                                .foregroundStyle(.secondary)
+                            HStack(spacing: 6) {
+                                Text("\(wins)").foregroundStyle(Theme.lime)
+                                Text("–").foregroundStyle(.tertiary)
+                                Text("\(losses)").foregroundStyle(Theme.opponent)
+                            }
+                            .font(.subheadline.weight(.bold).monospacedDigit())
+                            .accessibilityLabel("\(wins) Siege, \(losses) Niederlagen")
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, groupIndex == 0 ? 8 : 28)

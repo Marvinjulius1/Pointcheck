@@ -9,7 +9,30 @@ struct Card<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) { content }
-            .background(Theme.surface, in: .rect(cornerRadius: 22, style: .continuous))
+            .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.card, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                    .stroke(Theme.hairline, lineWidth: 1)
+            )
+    }
+}
+
+/// Small uppercase label above a group ("SPIELSTÄRKE").
+struct Eyebrow: View {
+    let text: String
+    var body: some View {
+        Text(text.uppercased())
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .tracking(1.4)
+            .foregroundStyle(.secondary)
+    }
+}
+
+/// Ball-based loading indicator (replaces spinners).
+struct BallLoader: View {
+    var size: CGFloat = 22
+    var body: some View {
+        BouncingBall(size: size).frame(height: size * 1.9)
     }
 }
 
@@ -87,7 +110,7 @@ struct IconTile: View {
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: size * 0.48, weight: .semibold))
-            .foregroundStyle(Theme.onAccent)
+            .foregroundStyle(tint == Theme.lime ? Theme.onAccent : Color.white)
             .frame(width: size, height: size)
             .background(tint, in: .rect(cornerRadius: size * 0.28, style: .continuous))
             .modifier(Flicker(level: fire, tint: tint))
@@ -118,7 +141,7 @@ struct RowDivider: View {
     var inset: CGFloat = 62
 
     var body: some View {
-        Divider().padding(.leading, inset)
+        Rectangle().fill(Theme.hairline).frame(height: 1).padding(.leading, inset)
     }
 }
 
@@ -307,7 +330,7 @@ struct FollowButton: View {
     }
 
     private var background: AnyShapeStyle {
-        relation == .none ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color(.tertiarySystemFill))
+        relation == .none ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Theme.surfaceRaised)
     }
 
     private func toggle() async {
@@ -718,7 +741,7 @@ struct QuietButtonStyle: ButtonStyle {
             .foregroundStyle(Color.primary)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(Color(.tertiarySystemFill), in: .capsule)
+            .background(Theme.surfaceRaised, in: .capsule)
             .opacity(isEnabled ? 1 : 0.4)
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
@@ -732,7 +755,7 @@ extension ButtonStyle where Self == QuietButtonStyle {
 /// Thin full-width separator between feed items.
 struct FeedDivider: View {
     var body: some View {
-        Rectangle().fill(Theme.hairline).frame(height: 0.5)
+        Rectangle().fill(Theme.hairline).frame(height: 1)
     }
 }
 

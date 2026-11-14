@@ -21,10 +21,10 @@ struct WeeklyGoalCard: View {
         let goal = PadelStats.weeklyGoal(matches, target: target)
         HStack(spacing: 18) {
             ZStack {
-                Circle().stroke(Theme.surface, lineWidth: 9)
+                Circle().stroke(Theme.surfaceRaised, lineWidth: 8)
                 Circle()
                     .trim(from: 0, to: shownProgress)
-                    .stroke(goal.isMet ? Theme.me : Theme.accent, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                    .stroke(Theme.lime, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 0) {
                     Text("\(goal.playedThisWeek)")
@@ -35,7 +35,7 @@ struct WeeklyGoalCard: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 72, height: 72)
+            .frame(width: 64, height: 64)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(goal.isMet ? "Wochenziel erreicht" : "Wochenziel")
@@ -48,13 +48,14 @@ struct WeeklyGoalCard: View {
                 if goal.streakWeeks > 0 {
                     Label("\(goal.streakWeeks) \(goal.streakWeeks == 1 ? "Woche" : "Wochen") in Folge", systemImage: "flame.fill")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Theme.lime)
                 }
             }
             Spacer()
         }
-        .padding(18)
-        .background(Theme.surface.opacity(0.6), in: .rect(cornerRadius: 22, style: .continuous))
+        .padding(Theme.Spacing.card)
+        .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
         .onAppear {
             withAnimation(reduceMotion ? nil : .spring(response: 1.0, dampingFraction: 0.85).delay(0.2)) { shownProgress = goal.progress }
         }
@@ -111,8 +112,9 @@ struct MonthReviewCard: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(18)
-        .background(Theme.surface.opacity(0.6), in: .rect(cornerRadius: 22, style: .continuous))
+        .padding(Theme.Spacing.card)
+        .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
     }
 
     private func stat(_ value: String, _ label: String, tint: Color = .primary) -> some View {

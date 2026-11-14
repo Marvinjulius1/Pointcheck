@@ -43,18 +43,22 @@ struct ProfileView: View {
                         withAnimation(.snappy) { tab = value }
                         if value == .badges { badges.markSeen() }
                     } label: {
-                        VStack(spacing: 12) {
-                            Image(systemName: value.symbol)
-                                .font(.system(size: 21, weight: .medium))
-                                .foregroundStyle(tab == value ? .primary : .secondary)
-                                .overlay(alignment: .topTrailing) {
-                                    if value == .badges, badges.hasUnseen {
-                                        Circle().fill(Theme.me).frame(width: 7, height: 7).offset(x: 4, y: -3)
+                        VStack(spacing: 10) {
+                            VStack(spacing: 4) {
+                                Image(systemName: value.symbol)
+                                    .font(.system(size: 19, weight: .medium))
+                                    .overlay(alignment: .topTrailing) {
+                                        if value == .badges, badges.hasUnseen {
+                                            Circle().fill(Theme.lime).frame(width: 7, height: 7).offset(x: 4, y: -3)
+                                        }
                                     }
-                                }
+                                Text(value.rawValue)
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .foregroundStyle(tab == value ? .primary : .secondary)
                             Rectangle()
-                                .fill(tab == value ? Color.primary : .clear)
-                                .frame(height: 1.5)
+                                .fill(tab == value ? Theme.lime : .clear)
+                                .frame(height: 2)
                         }
                         .frame(maxWidth: .infinity)
                         .contentShape(.rect)
@@ -166,13 +170,13 @@ struct ProfileView: View {
                     ProfilePhoto(name: page.displayName, url: account.imageURL(page.avatarPath, bucket: .avatars), size: 86)
                     if let level = page.level {
                         Text(level.formatted(.number.precision(.fractionLength(1))))
-                            .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
+                            .font(.system(size: 13, weight: .bold, design: .rounded).monospacedDigit())
                             .foregroundStyle(Theme.onAccent)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(Theme.accent, in: .capsule)
-                            .overlay(Capsule().stroke(Theme.background, lineWidth: 2))
-                            .offset(x: 4, y: 4)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4)
+                            .background(Theme.lime, in: .capsule)
+                            .overlay(Capsule().stroke(Theme.background, lineWidth: 3))
+                            .offset(x: 6, y: 6)
                             .accessibilityLabel("Level \(level.formatted(.number.precision(.fractionLength(1))))")
                     }
                 }
@@ -214,7 +218,7 @@ struct ProfileView: View {
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(Color(.tertiarySystemFill), in: .capsule)
+                        .background(Theme.surfaceRaised, in: .capsule)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -269,7 +273,7 @@ struct ProfileView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.primary)
                 .frame(width: 48, height: 38)
-                .background(Color(.tertiarySystemFill), in: .capsule)
+                .background(Theme.surfaceRaised, in: .capsule)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Profil teilen")
@@ -281,7 +285,7 @@ struct ProfileView: View {
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(Color(.tertiarySystemFill), in: .capsule)
+                .background(Theme.surfaceRaised, in: .capsule)
         }
         .buttonStyle(.pressScale)
     }
@@ -297,7 +301,8 @@ struct ProfileView: View {
             stat(number: Double(page.ratedMatches ?? 0), text: nil, label: "Matches", delay: 0.24)
         }
         .padding(.vertical, 18)
-        .background(Theme.surface, in: .rect(cornerRadius: 20, style: .continuous))
+        .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
     }
 
     private func stat(number: Double?, text: String?, label: String, tint: Color = .primary, delay: Double = 0, suffix: String = "") -> some View {
@@ -335,7 +340,7 @@ struct ProfileView: View {
                            message: isMe ? "Bestätigte Matches erscheinen hier. Trag deine Gegner ein und lass sie bestätigen."
                                          : "Sobald \(page?.displayName ?? "") bestätigte Matches hat, stehen sie hier.")
             } else {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
                     ForEach(results) { result in
                         NavigationLink {
                             ResultDetailView(result: result)
@@ -347,7 +352,7 @@ struct ProfileView: View {
                         .buttonStyle(.pressScale)
                     }
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, Theme.Spacing.page)
             }
         case .posts:
             if posts.isEmpty {
@@ -356,7 +361,7 @@ struct ProfileView: View {
                            actionTitle: isMe ? "Beitrag schreiben" : nil,
                            action: isMe ? { showsComposer = true } : nil)
             } else {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
                     ForEach(posts) { post in
                         NavigationLink {
                             PostDetailView(post: post, authorName: page?.displayName ?? "",
@@ -371,7 +376,7 @@ struct ProfileView: View {
                         .buttonStyle(.pressScale)
                     }
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, Theme.Spacing.page)
             }
         case .badges:
             BadgesGrid().padding(.horizontal)
@@ -456,7 +461,11 @@ struct ResultTile: View {
         }
         .frame(maxWidth: .infinity)
         .aspectRatio(1, contentMode: .fit)
-        .background(tint.opacity(0.12))
+        .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.tile, style: .continuous))
+        .overlay(alignment: .top) {
+            Capsule().fill(tint).frame(width: 28, height: 3).padding(.top, 8)
+        }
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(result.playerWon ? "Sieg" : "Niederlage") \(result.resultText)")
     }
@@ -498,7 +507,8 @@ struct PostTile: View {
         }
         .frame(maxWidth: .infinity)
         .aspectRatio(1, contentMode: .fit)
-        .clipped()
+        .clipShape(.rect(cornerRadius: Theme.Radius.tile, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
     }
 }
 
@@ -667,7 +677,7 @@ struct PostCard: View {
                         if let image = phase.image {
                             image.resizable().scaledToFill()
                         } else {
-                            Color(.tertiarySystemFill)
+                            Theme.surfaceRaised
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -727,7 +737,7 @@ struct MatchChip: View {
                 .foregroundStyle(match.authorWon ? Theme.me : Theme.opponent)
         }
         .padding(12)
-        .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 14, style: .continuous))
+        .background(Theme.surfaceRaised, in: .rect(cornerRadius: 14, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }

@@ -11,7 +11,7 @@ struct AppGate: View {
             switch account.state {
             case .loading:
                 Theme.background.ignoresSafeArea()
-                ProgressView()
+                BallLoader(size: 36)
             case .signedOut:
                 WelcomeView()
                     .transition(.opacity)

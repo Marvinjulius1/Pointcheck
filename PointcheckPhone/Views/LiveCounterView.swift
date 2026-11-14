@@ -174,14 +174,14 @@ struct LiveCounterView: View {
             switch (mine, theirs) {
             case (.some, nil): return (text, Theme.me)
             case (nil, .some): return (text, Theme.opponent)
-            default: return (text, .yellow)
+            default: return (text, Theme.lime)
             }
         }
         switch state.situation {
-        case .superTiebreak: return ("Match-Tiebreak", .yellow)
-        case .tiebreak: return ("Tiebreak", .yellow)
-        case .goldenPoint: return ("Golden Point", .yellow)
-        case .deuce: return ("Einstand", .yellow)
+        case .superTiebreak: return ("Match-Tiebreak", Theme.lime)
+        case .tiebreak: return ("Tiebreak", Theme.lime)
+        case .goldenPoint: return ("Golden Point", Theme.lime)
+        case .deuce: return ("Einstand", Theme.lime)
         default: return nil
         }
     }

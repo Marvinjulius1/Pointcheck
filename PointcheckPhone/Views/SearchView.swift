@@ -37,7 +37,7 @@ struct SearchView: View {
                     SectionTitle("Rangliste")
                     Card {
                         NavigationLink { LeaderboardView() } label: {
-                            MetricRow(symbol: "trophy.fill", tint: .orange, title: "Öffentliche Rangliste",
+                            MetricRow(symbol: "trophy.fill", tint: Theme.lime, title: "Öffentliche Rangliste",
                                       subtitle: "Die stärksten Spieler", value: "")
                         }
                         .buttonStyle(.plain)

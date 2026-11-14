@@ -1,19 +1,40 @@
 import PadelStats
 import SwiftUI
 
+/// Design system of the iPhone app: deep black, anthracite surfaces, white/grey text,
+/// one accent (padel lime) for wins, progress and primary actions, red only for losses.
 enum Theme {
-    static let me = Color(red: 0.19, green: 0.84, blue: 0.35)
-    static let opponent = Color(red: 1.0, green: 0.27, blue: 0.23)
-    static let ball = Color(red: 0.86, green: 1.0, blue: 0.31)
-    /// Page background: pure white / black, like Trade Republic.
-    static let background = Color(.systemBackground)
-    /// Quiet tile on top of the page.
-    static let surface = Color(.secondarySystemBackground)
-    static let hairline = Color(.separator).opacity(0.5)
-    /// Neutral accent for buttons, rings and icons: black in light mode, white in dark mode.
-    static let accent = Color.primary
-    /// Text on an accent-filled button.
-    static let onAccent = Color(.systemBackground)
+    /// Padel lime – wins, positive change, primary actions.
+    static let lime = Color(red: 0.84, green: 1.0, blue: 0.31)
+    /// "Me" / win colour (lime).
+    static let me = lime
+    /// Opponent / loss colour.
+    static let opponent = Color(red: 1.0, green: 0.30, blue: 0.27)
+    static let ball = lime
+
+    /// Page background.
+    static let background = Color(red: 0.0, green: 0.0, blue: 0.0)
+    /// Cards and interactive surfaces (anthracite).
+    static let surface = Color(red: 0.11, green: 0.11, blue: 0.12)
+    /// A step above `surface` (inner tiles, pressed states).
+    static let surfaceRaised = Color(red: 0.16, green: 0.16, blue: 0.17)
+    /// Subtle outline on surfaces.
+    static let hairline = Color.white.opacity(0.08)
+    /// Primary action colour and text on it.
+    static let accent = lime
+    static let onAccent = Color.black
+
+    enum Radius {
+        static let card: CGFloat = 20
+        static let inner: CGFloat = 14
+        static let tile: CGFloat = 12
+    }
+
+    enum Spacing {
+        static let page: CGFloat = 20
+        static let section: CGFloat = 28
+        static let card: CGFloat = 16
+    }
 
     static func scoreFont(size: CGFloat) -> Font {
         .system(size: size, weight: .bold, design: .rounded).monospacedDigit()
@@ -35,7 +56,7 @@ extension MatchSummary.Result {
         case .won: Theme.me
         case .lost: Theme.opponent
         case .abandoned: .secondary
-        case .live: .yellow
+        case .live: Theme.lime
         }
     }
 }

@@ -93,7 +93,7 @@ struct RatingView: View {
                     if head.isProvisional {
                         Label("Vorläufig – wird nach 10 Matches stabiler", systemImage: "hourglass")
                             .font(.footnote)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Theme.lime)
                     }
                 }
                 .frame(maxWidth: .infinity)

@@ -10,6 +10,8 @@ struct HomeView: View {
     @Environment(WatchSync.self) private var sync
     @Environment(AccountService.self) private var account
     @State private var showsComposer = false
+    @State private var showsCounter = false
+    @Environment(PhoneMatchController.self) private var counter
     @State private var following: [PersonRow] = []
     @Environment(\.zoomNamespace) private var zoomNamespace
 
@@ -20,44 +22,63 @@ struct HomeView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 RatingStrip(matches: all)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, 20)
+                    .padding(.horizontal, Theme.Spacing.page)
+                    .padding(.top, 8)
                     .revealOnAppear()
 
-                WeeklyGoalCard(matches: all)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 12)
-                    .revealOnAppear(delay: 0.05)
+                Group {
+                    Eyebrow(text: "Diese Woche")
+                        .padding(.top, Theme.Spacing.section)
+                        .padding(.bottom, 10)
+                    WeeklyGoalCard(matches: all)
+                    nextStep
+                        .padding(.top, 10)
+                }
+                .padding(.horizontal, Theme.Spacing.page)
+                .revealOnAppear(delay: 0.05)
 
                 if let review = pendingReview {
                     MonthReviewCard(review: review) { dismissReview(review) }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 12)
+                        .padding(.horizontal, Theme.Spacing.page)
+                        .padding(.top, 12)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
-                quickLinks
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                    .revealOnAppear(delay: 0.1)
+                HStack(alignment: .firstTextBaseline) {
+                    Eyebrow(text: "Dein Kreis")
+                    Spacer()
+                    NavigationLink("Rangliste") { CircleRankingView() }
+                        .font(.subheadline.weight(.semibold))
+                }
+                .padding(.horizontal, Theme.Spacing.page)
+                .padding(.top, Theme.Spacing.section)
+                .padding(.bottom, 10)
 
                 avatarRow
                     .revealOnAppear(delay: 0.12)
 
+                Eyebrow(text: "Feed")
+                    .padding(.horizontal, Theme.Spacing.page)
+                    .padding(.top, Theme.Spacing.section)
+                    .padding(.bottom, 6)
+
                 FeedDivider()
-                    .padding(.top, 4)
 
                 feed
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, 48)
         }
         .background(Theme.background)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Text("Pointcheck")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .fixedSize()
+                HStack(spacing: 8) {
+                    Image(systemName: "tennisball.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Theme.lime)
+                    Text("Pointcheck")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                }
+                .fixedSize()
             }
             .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .topBarTrailing) {
@@ -90,26 +111,33 @@ struct HomeView: View {
         withAnimation(.snappy) { dismissedReview = review.month.formatted(.iso8601.year().month()) }
     }
 
-    private var quickLinks: some View {
+    /// The next sensible action: count a match, or find players.
+    private var nextStep: some View {
         HStack(spacing: 10) {
+            Button {
+                showsCounter = true
+            } label: {
+                Label(counter.state.hasStarted && !counter.state.isFinished ? "Match fortsetzen" : "Match zählen",
+                      systemImage: "plus.forwardslash.minus")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.onAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Theme.accent, in: .capsule)
+            }
+            .buttonStyle(.pressScale)
             NavigationLink { GamesWantedView() } label: {
                 Label("Spieler gesucht", systemImage: "person.3")
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.primary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
+                    .padding(.vertical, 12)
                     .background(Theme.surface, in: .capsule)
-            }
-            .buttonStyle(.pressScale)
-            NavigationLink { CircleRankingView() } label: {
-                Label("Dein Kreis", systemImage: "list.number")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .background(Theme.surface, in: .capsule)
+                    .overlay(Capsule().stroke(Theme.hairline, lineWidth: 1))
             }
             .buttonStyle(.pressScale)
         }
-        .foregroundStyle(Color.primary)
+        .fullScreenCover(isPresented: $showsCounter) { LiveCounterView() }
     }
 
     private func loadFollowing() async {
@@ -242,40 +270,75 @@ private struct RatingStrip: View {
         NavigationLink {
             StatsView()
         } label: {
-            HStack(alignment: .center, spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Spielstärke")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    CountUpText(value: data.current)
-                        .font(.system(size: 40, weight: .semibold, design: .rounded).monospacedDigit())
-                        .overlay(alignment: .trailing) {
-                            if account.pendingRatingDelta != 0 {
-                                FloatingDelta(delta: account.pendingRatingDelta) { account.acknowledgeRatingDelta() }
-                                    .offset(x: 56)
+            let level = PadelLevel.level(for: data.current)
+            let isFlat = Set(window.map { Int($0.rating.rounded()) }).count <= 1
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Eyebrow(text: "Spielstärke")
+                        CountUpText(value: data.current)
+                            .font(.system(size: 44, weight: .semibold, design: .rounded).monospacedDigit())
+                            .overlay(alignment: .trailing) {
+                                if account.pendingRatingDelta != 0 {
+                                    FloatingDelta(delta: account.pendingRatingDelta) { account.acknowledgeRatingDelta() }
+                                        .offset(x: 60)
+                                }
                             }
+                        ChangeLabel(change: change.delta, base: change.base, suffix: "30 Tage")
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 5) {
+                        Text("LEVEL")
+                            .font(.system(size: 10, weight: .bold, design: .rounded)).tracking(1.2)
+                            .foregroundStyle(.secondary)
+                        Text(level.formatted(.number.precision(.fractionLength(1))))
+                            .font(.system(size: 22, weight: .bold, design: .rounded).monospacedDigit())
+                            .foregroundStyle(Theme.onAccent)
+                            .padding(.horizontal, 12).padding(.vertical, 4)
+                            .background(Theme.lime, in: .capsule)
+                        Text(PadelLevel.name(for: level))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+
+                ZStack {
+                    if isFlat {
+                        Rectangle()
+                            .fill(Theme.hairline)
+                            .frame(height: 1)
+                            .overlay(
+                                Text("Noch keine Veränderung in 30 Tagen")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .padding(.horizontal, 8)
+                                    .background(Theme.surface)
+                            )
+                    } else {
+                        Chart(window) { point in
+                            AreaMark(x: .value("Datum", point.date), y: .value("Punkte", point.rating))
+                                .interpolationMethod(.monotone)
+                                .foregroundStyle(LinearGradient(colors: [color.opacity(0.22), .clear], startPoint: .top, endPoint: .bottom))
+                            LineMark(x: .value("Datum", point.date), y: .value("Punkte", point.rating))
+                                .interpolationMethod(.monotone)
+                                .foregroundStyle(color)
+                                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                         }
-                    ChangeLabel(change: change.delta, base: change.base, suffix: "30 Tage")
+                        .chartXAxis(.hidden)
+                        .chartYAxis(.hidden)
+                        .chartYScale(domain: yDomain(window))
+                        .drawOnAppear()
+                    }
                 }
-                Spacer()
-                Chart(window) { point in
-                    LineMark(x: .value("Datum", point.date), y: .value("Punkte", point.rating))
-                        .interpolationMethod(.monotone)
-                        .foregroundStyle(color)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    AreaMark(x: .value("Datum", point.date), y: .value("Punkte", point.rating))
-                        .interpolationMethod(.monotone)
-                        .foregroundStyle(LinearGradient(colors: [color.opacity(0.25), .clear], startPoint: .top, endPoint: .bottom))
+                .frame(height: 72)
+
+                HStack {
+                    Text("Verlauf & Statistik").font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                 }
-                .chartXAxis(.hidden)
-                .chartYAxis(.hidden)
-                .chartYScale(domain: yDomain(window))
-                .frame(width: 120, height: 56)
-                .drawOnAppear()
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
             }
+            .padding(Theme.Spacing.card)
+            .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
             .contentShape(.rect)
         }
         .buttonStyle(.pressScale)

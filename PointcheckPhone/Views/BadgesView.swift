@@ -14,7 +14,7 @@ struct BadgesGrid: View {
             Card {
                 HStack(spacing: 16) {
                     ZStack {
-                        Circle().stroke(Color(.tertiarySystemFill), lineWidth: 7)
+                        Circle().stroke(Theme.surfaceRaised, lineWidth: 7)
                         Circle()
                             .trim(from: 0, to: Double(unlocked) / Double(max(badges.count, 1)))
                             .stroke(Theme.accent, style: StrokeStyle(lineWidth: 7, lineCap: .round))
@@ -51,7 +51,7 @@ private struct BadgeTile: View {
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(badge.isUnlocked ? AnyShapeStyle(Theme.onAccent) : AnyShapeStyle(HierarchicalShapeStyle.secondary))
                 .frame(width: 58, height: 58)
-                .background(badge.isUnlocked ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color(.tertiarySystemFill)), in: .circle)
+                .background(badge.isUnlocked ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Theme.surfaceRaised), in: .circle)
                 .symbolEffect(.bounce, value: badge.isUnlocked)
             Text(badge.title)
                 .font(.subheadline.weight(.semibold))
