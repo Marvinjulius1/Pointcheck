@@ -80,6 +80,7 @@ struct RootView: View {
             let local = stored.map(\.summary)
             await account.uploadNewMatches(local)
             await health.refresh(for: account.allMatches(local: local))
+            WidgetBridge.update(account: account, matches: account.allMatches(local: local))
         }
     }
 }

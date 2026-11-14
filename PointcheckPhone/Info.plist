@@ -33,6 +33,8 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Pointcheck trägt zugesagte Revanchen und Matches in deinen Kalender ein.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Pointcheck zeigt Herzfrequenz und Kalorien deiner Padel-Matches, die deine Apple Watch aufgezeichnet hat.</string>
 	<key>UILaunchScreen</key>

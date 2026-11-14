@@ -90,12 +90,14 @@ targets:
     platform: iOS
     sources:
       - path: PointcheckPhone
+      - path: Shared
     dependencies:
       - package: PadelScoring
         product: PadelStats
       - package: Supabase
         product: Supabase
       - sdk: HealthKit.framework
+      - target: PointcheckPhoneWidget
       # Embeds the watch app ("Embed Watch Content").
       - target: Pointcheck
         embed: true
@@ -127,11 +129,40 @@ targets:
             CFBundleURLSchemes:
               - pointcheck
         NSHealthShareUsageDescription: Pointcheck zeigt Herzfrequenz und Kalorien deiner Padel-Matches, die deine Apple Watch aufgezeichnet hat.
+        NSCalendarsWriteOnlyAccessUsageDescription: Pointcheck trägt zugesagte Revanchen und Matches in deinen Kalender ein.
     entitlements:
       path: PointcheckPhone/Pointcheck.entitlements
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
+        com.apple.security.application-groups:
+          - group.com.marvinjulius.pointcheck
+
+  PointcheckPhoneWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: PointcheckPhoneWidget
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.marvinjulius.pointcheck.widget
+        PRODUCT_NAME: PointcheckPhoneWidget
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: PointcheckPhoneWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Pointcheck
+        CFBundleDevelopmentRegion: de
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: PointcheckPhoneWidget/PointcheckPhoneWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.marvinjulius.pointcheck
 
 schemes:
   PointcheckPhone:

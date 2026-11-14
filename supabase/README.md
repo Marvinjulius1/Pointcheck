@@ -19,6 +19,10 @@ Matches mit Bestätigung durch den Gegner und die Spielstärke-Berechnung auf de
 | `profile_page(id)` | Alles für die Profilseite: Foto, Bio, Heimat-Halle, Zähler, Spielstärke, Serie |
 | `search_profiles(text)`, `suggested_profiles()` | Spielersuche und Vorschläge („Hat mit dir gespielt“, „Aus deiner Halle“) |
 | `posts`, `home_feed`, `profile_posts`, `profile_results` | Beiträge (Text, Bild, Match) und der Feed der Leute, denen ich folge |
+| `reactions`, `comments` | 👏 und Kommentare zu Beiträgen bzw. bestätigten Matches |
+| `rematch_requests`, `games_wanted`, `game_joins` | Revanche-Vorschläge und „Spieler gesucht“ |
+| `club_ranking`, `club_activity`, `head_to_head` | Hallen-Seite und gemeinsame Matches |
+| `device_tokens`, `delete_my_account` | Push-Vorbereitung und Konto-Löschung |
 | Storage `avatars`, `posts` | Profilfotos und Beitragsbilder; nur der eigene Ordner ist beschreibbar |
 | `my_match_feed()` | Alle Matches, in denen ich spiele – aus meiner Sicht, mit Namen der Mitspieler |
 

@@ -57,6 +57,20 @@ Hallen und Clubs bekommen später eine Web-Ansicht.
 - ✅ Einheitliche Bausteine (Karten, Avatare, Folgen-Button, leere Zustände) statt Einstellungs-Listen
 - Offen: Push-Mitteilungen (Developer-Programm), Beiträge liken/kommentieren
 
+### Spiel, Social, Organisation (14.11.)
+- ✅ Wochenziel-Ring auf Home mit Wochen-Serie (Ziel in den Einstellungen)
+- ✅ Revanche vorschlagen (auf dem Profil des Gegners), Zusage/Absage unter Aktivität, Kalender-Export
+- ✅ Monatsrückblick als Karte auf Home (einmal pro Monat) mit teilbarem Bild
+- ✅ „Dein Kreis“: Rangliste der Leute, denen du folgst
+- ✅ 👏 auf Beiträge (lange drücken zeigt, wer applaudiert hat), Kommentare unter Beiträgen und Ergebnissen
+- ✅ Erwähnungen: verlinkte Mitspieler als antippbare Chips
+- ✅ Gemeinsame Matches auf fremden Profilen („4× gegeneinander · Bilanz 2:2“)
+- ✅ „Spieler gesucht“: Gesuche mit Zeit, Halle, Court, freie Plätze; zusagen, absagen, Kalender
+- ✅ Heimat-Halle-Seite: Aktivität, Rangliste, offene Gesuche (Tipp auf die Halle im Profil)
+- ✅ Widgets fürs iPhone: Spielstärke mit Verlauf (klein), plus nächstes Match (mittel), Sperrbildschirm
+- ✅ Konto löschen in den Einstellungen
+- ✅ Push vorbereitet: Berechtigung, Token-Speicherung; Zustellung erst mit dem Apple Developer Program
+
 ### Motion (13.11.)
 - ✅ Erfolg freigeschaltet: Karte von unten, einmal gedreht, grüner Punkt am Erfolge-Tab
 - ✅ Spielstärke-Sprung als „+24“/„−12“, das hochfliegt bzw. absinkt
