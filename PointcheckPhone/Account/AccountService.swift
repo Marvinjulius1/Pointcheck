@@ -212,6 +212,9 @@ final class AccountService {
         feed = []
         feedHasMore = false
         suggestions = []
+        rematches = []
+        reactions = [:]
+        commentCounts = [:]
         foreignMatches = []
         foreignIDs = []
     }
@@ -269,6 +272,7 @@ final class AccountService {
         }
 
         await loadFeed()
+        await loadRematches()
 
         if let loaded: [RatingHistoryRow] = await load("rating history", {
             try await self.client.from("rating_history").select("id, rating_before, rating_after, created_at")
@@ -591,7 +595,14 @@ final class AccountService {
         }) {
             feed = page
             feedHasMore = page.count == Self.feedPageSize
+            await loadSocialCounts(for: page)
         }
+    }
+
+    private func loadSocialCounts(for items: [FeedItem]) async {
+        await loadReactions(for: items.filter { $0.kind == .post }.map(\.id))
+        await loadCommentCounts(posts: items.filter { $0.kind == .post }.map(\.id),
+                                matches: items.compactMap { $0.kind == .match ? $0.id : $0.match?.matchID })
     }
 
     func loadMoreFeed() async {
@@ -601,6 +612,7 @@ final class AccountService {
         }) {
             feed += page
             feedHasMore = page.count == Self.feedPageSize
+            await loadSocialCounts(for: page)
         }
     }
 
@@ -646,8 +658,184 @@ final class AccountService {
         await loadFeed()
     }
 
-    /// Things waiting for me: follow requests and results to confirm.
-    var activityCount: Int { followRequests.count + openConfirmations.count }
+    /// Things waiting for me: follow requests, results to confirm, rematch requests.
+    var activityCount: Int { followRequests.count + openConfirmations.count + rematches.filter { $0.incoming && $0.status == .pending }.count }
+
+    // MARK: - Reactions & comments
+
+    private(set) var reactions: [UUID: ReactionSummary] = [:]
+    private(set) var commentCounts: [UUID: Int] = [:]
+
+    func loadReactions(for postIDs: [UUID]) async {
+        guard !postIDs.isEmpty else { return }
+        if let rows: [ReactionSummary] = await load("reactions", {
+            try await self.client.rpc("reaction_summary", params: ["p_posts": postIDs]).execute().value
+        }) {
+            for row in rows { reactions[row.postID] = row }
+        }
+    }
+
+    func loadCommentCounts(posts: [UUID], matches: [UUID]) async {
+        guard !posts.isEmpty || !matches.isEmpty else { return }
+        struct Params: Encodable { var p_posts: [UUID]; var p_matches: [UUID] }
+        if let rows: [CommentCount] = await load("comment counts", {
+            try await self.client.rpc("comment_counts", params: Params(p_posts: posts, p_matches: matches)).execute().value
+        }) {
+            for row in rows {
+                if let id = row.postID ?? row.matchID { commentCounts[id] = row.comments }
+            }
+        }
+    }
+
+    /// Toggles my 👏 on a post; optimistic update.
+    func toggleClap(_ postID: UUID) async {
+        let before = reactions[postID] ?? ReactionSummary(postID: postID, claps: 0, clapped: false)
+        reactions[postID] = ReactionSummary(postID: postID, claps: before.claps + (before.clapped ? -1 : 1), clapped: !before.clapped)
+        do {
+            if before.clapped {
+                try await client.from("reactions").delete().eq("post_id", value: postID).eq("profile_id", value: userID ?? UUID()).execute()
+            } else {
+                try await client.from("reactions").insert(["post_id": postID]).execute()
+            }
+        } catch {
+            reactions[postID] = before
+        }
+    }
+
+    func reactors(of postID: UUID) async -> [PersonRow] {
+        (try? await client.rpc("reactors", params: ["p_post": postID]).execute().value) ?? []
+    }
+
+    func comments(post: UUID? = nil, match: UUID? = nil) async -> [Comment] {
+        struct Params: Encodable { var p_post: UUID?; var p_match: UUID? }
+        return (try? await client.rpc("comments_for", params: Params(p_post: post, p_match: match)).execute().value) ?? []
+    }
+
+    func addComment(_ text: String, post: UUID? = nil, match: UUID? = nil) async throws {
+        struct Insert: Encodable {
+            var post_id: UUID?
+            var match_id: UUID?
+            var text: String
+        }
+        let clean = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(500))
+        guard !clean.isEmpty else { return }
+        try await client.from("comments").insert(Insert(post_id: post, match_id: match, text: clean)).execute()
+        if let id = post ?? match { commentCounts[id, default: 0] += 1 }
+    }
+
+    func deleteComment(_ id: UUID, target: UUID) async throws {
+        try await client.from("comments").delete().eq("id", value: id).execute()
+        commentCounts[target] = max(0, (commentCounts[target] ?? 1) - 1)
+    }
+
+    // MARK: - Rematches
+
+    private(set) var rematches: [RematchRequest] = []
+
+    func loadRematches() async {
+        if let rows: [RematchRequest] = await load("rematches", {
+            try await self.client.rpc("my_rematches").execute().value
+        }) {
+            rematches = rows
+        }
+    }
+
+    func proposeRematch(to profileID: UUID, matchID: UUID?, at date: Date, note: String) async throws {
+        struct Insert: Encodable {
+            var to_id: UUID
+            var match_id: UUID?
+            var proposed_at: Date
+            var note: String?
+        }
+        let clean = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        try await client.from("rematch_requests")
+            .insert(Insert(to_id: profileID, match_id: matchID, proposed_at: date, note: clean.isEmpty ? nil : String(clean.prefix(200))))
+            .execute()
+        await loadRematches()
+    }
+
+    func respondRematch(_ request: RematchRequest, accept: Bool) async throws {
+        struct Params: Encodable { var p_request: UUID; var p_accept: Bool }
+        try await client.rpc("respond_rematch", params: Params(p_request: request.id, p_accept: accept)).execute()
+        await loadRematches()
+    }
+
+    func withdrawRematch(_ request: RematchRequest) async throws {
+        try await client.from("rematch_requests").delete().eq("id", value: request.id).execute()
+        await loadRematches()
+    }
+
+    // MARK: - Games wanted
+
+    func openGames(club: String? = nil) async -> [GameWanted] {
+        struct Params: Encodable { var p_club: String? }
+        return (try? await client.rpc("open_games", params: Params(p_club: club)).execute().value) ?? []
+    }
+
+    func createGame(startsAt: Date, club: String, court: String, playersNeeded: Int, note: String) async throws -> UUID {
+        struct Insert: Encodable {
+            var id: UUID
+            var starts_at: Date
+            var club: String?
+            var court: String?
+            var players_needed: Int
+            var note: String?
+        }
+        let id = UUID()
+        func clean(_ s: String, _ max: Int) -> String? {
+            let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            return t.isEmpty ? nil : String(t.prefix(max))
+        }
+        try await client.from("games_wanted").insert(Insert(
+            id: id, starts_at: startsAt, club: clean(club, 60), court: clean(court, 20),
+            players_needed: min(3, max(1, playersNeeded)), note: clean(note, 200)
+        )).execute()
+        return id
+    }
+
+    func joinGame(_ game: GameWanted) async throws {
+        try await client.from("game_joins").insert(["game_id": game.id]).execute()
+    }
+
+    func leaveGame(_ game: GameWanted) async throws {
+        try await client.from("game_joins").delete().eq("game_id", value: game.id).eq("profile_id", value: userID ?? UUID()).execute()
+    }
+
+    func cancelGame(_ game: GameWanted) async throws {
+        try await client.from("games_wanted").delete().eq("id", value: game.id).execute()
+    }
+
+    // MARK: - Club & head-to-head
+
+    func clubRanking(_ club: String) async -> [ClubMember] {
+        (try? await client.rpc("club_ranking", params: ["p_club": club]).execute().value) ?? []
+    }
+
+    func clubActivity(_ club: String) async -> ClubActivity? {
+        let rows: [ClubActivity]? = try? await client.rpc("club_activity", params: ["p_club": club]).execute().value
+        return rows?.first
+    }
+
+    func headToHead(_ profileID: UUID) async -> HeadToHead? {
+        let rows: [HeadToHead]? = try? await client.rpc("head_to_head", params: ["p_other": profileID]).execute().value
+        return rows?.first
+    }
+
+    // MARK: - Push (device token; delivery needs the Apple Developer Program)
+
+    func registerDeviceToken(_ token: String) async {
+        struct Row: Encodable { var token: String; var platform: String }
+        _ = try? await client.from("device_tokens").upsert(Row(token: token, platform: "ios")).execute()
+    }
+
+    // MARK: - Delete account
+
+    func deleteAccount() async throws {
+        try await client.rpc("delete_my_account").execute()
+        try? await client.auth.signOut()
+        state = .signedOut
+        clear()
+    }
 
     func leaderboard() async -> [LeaderboardRow] {
         (try? await client.from("leaderboard").select().limit(100).execute().value) ?? []

@@ -176,9 +176,10 @@ struct FeedItem: Decodable, Identifiable, Equatable {
     var text: String?
     var imagePath: String?
     var match: AttachedMatch?
+    var players: [MentionedPlayer] = []
 
     enum CodingKeys: String, CodingKey {
-        case kind, id, text, sets
+        case kind, id, text, sets, players
         case createdAt = "created_at"
         case authorID = "author_id"
         case authorName = "author_name"
@@ -227,6 +228,7 @@ struct FeedItem: Decodable, Identifiable, Equatable {
             partnerName: try c.decodeIfPresent(String.self, forKey: .partnerName),
             opponentNames: try c.decodeIfPresent(String.self, forKey: .opponentNames)
         )
+        players = (try? c.decodeIfPresent([MentionedPlayer].self, forKey: .players)) ?? []
     }
 }
 
@@ -237,9 +239,10 @@ struct ProfilePost: Decodable, Identifiable, Equatable {
     var text: String
     var imagePath: String?
     var match: AttachedMatch?
+    var players: [MentionedPlayer] = []
 
     enum CodingKeys: String, CodingKey {
-        case id, text, sets
+        case id, text, sets, players
         case createdAt = "created_at"
         case imagePath = "image_path"
         case matchID = "match_id"
@@ -273,6 +276,7 @@ struct ProfilePost: Decodable, Identifiable, Equatable {
             partnerName: try c.decodeIfPresent(String.self, forKey: .partnerName),
             opponentNames: try c.decodeIfPresent(String.self, forKey: .opponentNames)
         )
+        players = (try? c.decodeIfPresent([MentionedPlayer].self, forKey: .players)) ?? []
     }
 }
 
@@ -494,5 +498,173 @@ struct FeedMatch: Decodable, Identifiable {
         case superTiebreak = "super_tiebreak"
         case partnerName = "partner_name"
         case opponentNames = "opponent_names"
+    }
+}
+
+// MARK: - Social & play
+
+/// A linked player of an attached match (for mentions).
+struct MentionedPlayer: Codable, Hashable, Identifiable {
+    var id: UUID?
+    var name: String?
+    var side: String
+    var slot: Int
+
+    var stableID: String { id?.uuidString ?? "guest-\(slot)" }
+}
+
+struct ReactionSummary: Decodable, Hashable {
+    var postID: UUID
+    var claps: Int
+    var clapped: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case claps, clapped
+        case postID = "post_id"
+    }
+}
+
+struct Comment: Decodable, Identifiable, Hashable {
+    var id: UUID
+    var authorID: UUID
+    var authorName: String
+    var authorAvatar: String?
+    var text: String
+    var createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, text
+        case authorID = "author_id"
+        case authorName = "author_name"
+        case authorAvatar = "author_avatar"
+        case createdAt = "created_at"
+    }
+}
+
+struct CommentCount: Decodable, Hashable {
+    var postID: UUID?
+    var matchID: UUID?
+    var comments: Int
+
+    enum CodingKeys: String, CodingKey {
+        case comments
+        case postID = "post_id"
+        case matchID = "match_id"
+    }
+}
+
+enum RequestStatus: String, Codable, Hashable {
+    case pending, accepted, declined
+
+    var title: String {
+        switch self {
+        case .pending: "Offen"
+        case .accepted: "Zugesagt"
+        case .declined: "Abgelehnt"
+        }
+    }
+}
+
+struct RematchRequest: Decodable, Identifiable, Hashable {
+    var id: UUID
+    var fromID: UUID
+    var toID: UUID
+    var otherName: String
+    var otherAvatar: String?
+    var incoming: Bool
+    var proposedAt: Date
+    var note: String?
+    var status: RequestStatus
+    var createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, incoming, note, status
+        case fromID = "from_id"
+        case toID = "to_id"
+        case otherName = "other_name"
+        case otherAvatar = "other_avatar"
+        case proposedAt = "proposed_at"
+        case createdAt = "created_at"
+    }
+}
+
+struct GameWanted: Decodable, Identifiable, Hashable {
+    var id: UUID
+    var hostID: UUID
+    var hostName: String
+    var hostAvatar: String?
+    var startsAt: Date
+    var club: String?
+    var court: String?
+    var playersNeeded: Int
+    var note: String?
+    var joined: Int
+    var joinedNames: String?
+    var iJoined: Bool
+    var isHost: Bool
+
+    var isFull: Bool { joined >= playersNeeded }
+    var openSpots: Int { max(0, playersNeeded - joined) }
+
+    enum CodingKeys: String, CodingKey {
+        case id, club, court, note, joined
+        case hostID = "host_id"
+        case hostName = "host_name"
+        case hostAvatar = "host_avatar"
+        case startsAt = "starts_at"
+        case playersNeeded = "players_needed"
+        case joinedNames = "joined_names"
+        case iJoined = "i_joined"
+        case isHost = "is_host"
+    }
+}
+
+struct ClubMember: Decodable, Identifiable, Hashable {
+    var profileID: UUID
+    var displayName: String
+    var username: String?
+    var avatarPath: String?
+    var rating: Double
+    var ratedMatches: Int
+    var relation: FollowRelation
+
+    var id: UUID { profileID }
+    var level: Double { PadelLevel.level(for: rating) }
+
+    enum CodingKeys: String, CodingKey {
+        case username, rating, relation
+        case profileID = "profile_id"
+        case displayName = "display_name"
+        case avatarPath = "avatar_path"
+        case ratedMatches = "rated_matches"
+    }
+}
+
+struct ClubActivity: Decodable, Hashable {
+    var players: Int
+    var matches30d: Int
+
+    enum CodingKeys: String, CodingKey {
+        case players
+        case matches30d = "matches_30d"
+    }
+}
+
+struct HeadToHead: Decodable, Hashable {
+    var against: Int
+    var myWins: Int
+    var theirWins: Int
+    var together: Int
+    var togetherWins: Int
+    var lastPlayed: Date?
+
+    var hasHistory: Bool { against + together > 0 }
+
+    enum CodingKeys: String, CodingKey {
+        case against, together
+        case myWins = "my_wins"
+        case theirWins = "their_wins"
+        case togetherWins = "together_wins"
+        case lastPlayed = "last_played"
     }
 }
