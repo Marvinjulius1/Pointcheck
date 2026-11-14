@@ -148,30 +148,43 @@ struct CreateGameSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    DatePicker("Wann?", selection: $date, in: Date.now..., displayedComponents: [.date, .hourAndMinute])
-                    TextField("Halle", text: $club)
-                    TextField("Court (optional)", text: $court)
-                    Stepper("Es fehlen: \(playersNeeded)", value: $playersNeeded, in: 1...3)
-                } header: {
-                    Text("Spieler gesucht")
+            FormScreen(title: "Spieler gesucht", subtitle: "Dein Gesuch sehen alle, die dir folgen oder in deiner Halle spielen.",
+                       symbol: "person.3.fill") {
+                FormGroup(title: "Wann & wo") {
+                    DateRow(title: "Wann?", date: $date, range: Date.now...)
+                    RowDivider()
+                    InputRow(label: "Halle", placeholder: "Name der Halle", text: $club, symbol: "building.2.fill")
+                    RowDivider()
+                    InputRow(label: "Court", placeholder: "optional", text: $court, symbol: "square.split.2x1")
                 }
-                Section {
-                    TextField("Hinweis, z. B. Level 3–4, lockeres Match", text: $note, axis: .vertical)
-                        .lineLimit(1...3)
+                FormGroup(title: "Es fehlen") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text("\(playersNeeded)")
+                                .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
+                                .contentTransition(.numericText())
+                            Text(playersNeeded == 1 ? "Spieler" : "Spieler")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        BallCounter(value: $playersNeeded, range: 1...3, maxBalls: 3)
+                    }
+                    .padding(16)
+                    .animation(.snappy, value: playersNeeded)
                 }
-                if let errorText {
-                    Section { Text(errorText).foregroundStyle(Theme.opponent) }
+                FormGroup(title: "Hinweis") {
+                    InputRow(label: "Für wen passt es?", placeholder: "z. B. Level 3–4, lockeres Match", text: $note,
+                             symbol: "text.bubble.fill", axis: .vertical, lineLimit: 1...3)
+                }
+                if let errorText { FormError(text: errorText) }
+            } footer: {
+                FormActionBar(title: "Gesuch einstellen", enabled: !club.trimmingCharacters(in: .whitespaces).isEmpty, isWorking: isSaving) {
+                    Task { await save() }
                 }
             }
-            .navigationTitle("Gesuch erstellen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Einstellen") { Task { await save() } }.disabled(isSaving)
-                }
             }
         }
     }

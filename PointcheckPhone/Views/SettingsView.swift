@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// App settings: upload, Health, account.
+/// App settings: counting rules, goal, connections, notifications, account.
 struct SettingsView: View {
     @Environment(AccountService.self) private var account
     @Environment(HealthService.self) private var health
@@ -17,90 +17,93 @@ struct SettingsView: View {
     @AppStorage(PhoneRules.goldenPointKey) private var goldenPoint = false
     @AppStorage(PhoneRules.superTiebreakKey) private var superTiebreak = false
 
-    var body: some View {
-        List {
-            Section {
-                Toggle("Neue Matches automatisch eintragen", isOn: Binding(
-                    get: { account.autoUpload },
-                    set: { account.autoUpload = $0 }
-                ))
-            } header: {
-                Text("Matches")
-            } footer: {
-                Text("Neue Matches von deiner Watch werden hochgeladen, sobald sie auf dem iPhone ankommen. Gegner verlinkst du danach im Match unter „Spielstärke“.")
-            }
+    private var autoUpload: Binding<Bool> {
+        Binding(get: { account.autoUpload }, set: { account.autoUpload = $0 })
+    }
 
-            Section {
-                Picker("Sätze", selection: $bestOf) {
-                    Text("1 Satz").tag(1)
-                    Text("Best of 3").tag(3)
-                    Text("Best of 5").tag(5)
+    var body: some View {
+        FormScreen(title: "Einstellungen", symbol: "slider.horizontal.3") {
+            accountHeader
+
+            FormGroup(title: "Zählen auf dem iPhone",
+                      note: counter.state.hasStarted ? "Gilt ab dem nächsten Match. Die Watch hat ihre eigenen Regeln." : "Die Watch hat ihre eigenen Regeln.") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Sätze").font(.body.weight(.medium))
+                    PillPicker(selection: $bestOf, options: [(1, "1 Satz"), (3, "Best of 3"), (5, "Best of 5")])
                 }
-                Toggle("Match-Tiebreak statt 3. Satz", isOn: $superTiebreak)
+                .padding(16)
+                RowDivider(inset: 16)
+                ToggleRow(symbol: "scope", title: "Match-Tiebreak", subtitle: "Statt eines dritten Satzes bis 10", isOn: $superTiebreak)
                     .disabled(bestOf == 1)
-                Toggle("Golden Point bei 40:40", isOn: $goldenPoint)
-            } header: {
-                Text("Zählen auf dem iPhone")
-            } footer: {
-                Text(counter.state.hasStarted ? "Gilt ab dem nächsten Match." : "Die Watch hat ihre eigenen Einstellungen.")
+                RowDivider()
+                ToggleRow(symbol: "bolt.fill", title: "Golden Point", subtitle: "Bei 40:40 entscheidet ein Punkt", isOn: $goldenPoint)
             }
             .onChange(of: bestOf) { counter.applyRules() }
             .onChange(of: goldenPoint) { counter.applyRules() }
             .onChange(of: superTiebreak) { counter.applyRules() }
 
-            Section {
-                if health.isAvailable && !health.hasRequestedAccess {
-                    Button("Mit Health verbinden") { Task { await health.requestAccess() } }
-                } else {
-                    LabeledContent("Health", value: health.isAvailable ? "Verbunden" : "Nicht verfügbar")
+            FormGroup(title: "Wochenziel", note: "Der Ring auf der Startseite füllt sich mit jedem Match.") {
+                VStack(spacing: 14) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("\(weeklyTarget)")
+                            .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
+                            .contentTransition(.numericText())
+                        Text(weeklyTarget == 1 ? "Match pro Woche" : "Matches pro Woche")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    BallCounter(value: $weeklyTarget, range: 1...14)
                 }
-                Button("Verlauf von der Watch laden") { sync.requestAll() }
+                .padding(16)
+                .animation(.snappy, value: weeklyTarget)
+            }
+
+            FormGroup(title: "Matches & Daten",
+                      note: "Neue Matches werden hochgeladen, sobald sie auf dem iPhone ankommen. Gegner verlinkst du danach im Match.") {
+                ToggleRow(symbol: "icloud.and.arrow.up", title: "Automatisch eintragen", subtitle: "Neue Matches zählen sofort für deine Spielstärke", isOn: autoUpload)
+                RowDivider()
+                if health.isAvailable && !health.hasRequestedAccess {
+                    ActionRow(symbol: "heart.fill", title: "Mit Health verbinden", subtitle: "Puls, Kalorien und Dauer pro Match") {
+                        Task { await health.requestAccess() }
+                    }
+                } else {
+                    FormRow(symbol: "heart.fill", title: "Health") {
+                        StatusChip(text: health.isAvailable ? "Verbunden" : "Nicht verfügbar", on: health.isAvailable)
+                    }
+                }
+                RowDivider()
+                ActionRow(symbol: "applewatch", title: "Verlauf von der Watch laden",
+                          subtitle: sync.isWatchAppInstalled ? nil : "Keine Watch-App gefunden",
+                          trailingSymbol: "arrow.down.circle") { sync.requestAll() }
                     .disabled(!sync.isWatchAppInstalled)
-            } header: {
-                Text("Daten")
+                    .opacity(sync.isWatchAppInstalled ? 1 : 0.5)
             }
 
-            Section {
-                Stepper("Wochenziel: \(weeklyTarget) \(weeklyTarget == 1 ? "Match" : "Matches")", value: $weeklyTarget, in: 1...14)
-            } header: {
-                Text("Motivation")
-            } footer: {
-                Text("Der Ring auf der Startseite füllt sich mit jedem gespielten Match.")
-            }
-
-            Section {
-                Toggle("Mitteilungen", isOn: $pushEnabled)
+            FormGroup(title: "Mitteilungen",
+                      note: "Bestätigungen, neue Follower, Applaus und Revanche-Anfragen. Außerhalb der App kommen sie erst mit TestFlight oder App Store an.") {
+                ToggleRow(symbol: "bell.fill", title: "Mitteilungen", isOn: $pushEnabled)
                     .onChange(of: pushEnabled) { _, on in
                         if on { Task { await PushManager.shared.enable() } }
                     }
-            } header: {
-                Text("Mitteilungen")
-            } footer: {
-                Text("Bestätigungen, neue Follower, Applaus und Revanche-Anfragen. Mitteilungen außerhalb der App kommen erst, sobald die App über TestFlight oder den App Store verteilt wird.")
             }
 
-            Section {
-                LabeledContent("E-Mail", value: account.client.auth.currentUser?.email ?? "–")
-                Button("Passwort ändern") { showsPasswordSheet = true }
-            } header: {
-                Text("Konto")
+            FormGroup(title: "Konto") {
+                ActionRow(symbol: "key.fill", title: "Passwort ändern") { showsPasswordSheet = true }
+                RowDivider()
+                ActionRow(symbol: "rectangle.portrait.and.arrow.right", title: "Abmelden",
+                          subtitle: "Deine Matches bleiben auf Watch und iPhone", trailingSymbol: nil) { confirmSignOut = true }
             }
 
-            Section {
-                Button("Abmelden", role: .destructive) { confirmSignOut = true }
-            } footer: {
-                Text("Deine Matches bleiben auf Watch und iPhone erhalten.")
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
             VStack(spacing: 6) {
-                Button("Konto löschen", role: .destructive) { confirmDelete = true }
-                    .font(.footnote)
+                Button("Konto löschen") { confirmDelete = true }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.opponent)
                 if let deleteError {
                     Text(deleteError).font(.caption).foregroundStyle(Theme.opponent)
                 }
             }
-            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 8)
         }
         .confirmationDialog("Konto endgültig löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Konto und alle Daten löschen", role: .destructive) {
@@ -113,7 +116,7 @@ struct SettingsView: View {
         } message: {
             Text("Profil, Follower, Beiträge, Kommentare und hochgeladene Matches werden vom Server gelöscht. Die Matches auf Watch und iPhone bleiben. Das lässt sich nicht rückgängig machen.")
         }
-        .navigationTitle("Einstellungen")
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showsPasswordSheet) { ChangePasswordSheet() }
         .confirmationDialog("Abmelden?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Abmelden", role: .destructive) {
@@ -121,5 +124,26 @@ struct SettingsView: View {
             }
             Button("Abbrechen", role: .cancel) {}
         }
+    }
+
+    /// Who is signed in: photo, name, e-mail.
+    private var accountHeader: some View {
+        HStack(spacing: 14) {
+            ProfilePhoto(name: account.profile?.displayName ?? "",
+                         url: account.imageURL(account.profile?.avatarPath, bucket: .avatars), size: 56)
+                .overlay(Circle().stroke(Theme.lime, lineWidth: 2))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(account.profile?.displayName ?? "Dein Konto")
+                    .font(.headline)
+                Text(account.client.auth.currentUser?.email ?? "–")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+        .padding(16)
+        .background(Theme.surface, in: .rect(cornerRadius: Theme.Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
     }
 }

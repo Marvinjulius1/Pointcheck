@@ -197,30 +197,19 @@ struct FinishMatchSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    VStack(spacing: 6) {
-                        Text(counter.state.winner == .me ? "Gewonnen!" : "Verloren")
-                            .font(.title2.weight(.bold))
-                        Text(counter.state.completedSets.map(\.resultText).joined(separator: "  "))
-                            .font(Theme.scoreFont(size: 22))
-                            .foregroundStyle(counter.state.winner == .me ? Theme.me : Theme.opponent)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(Color.clear)
+            FormScreen(title: counter.state.winner == .me ? "Gewonnen!" : "Verloren",
+                       subtitle: "Wer stand mit dir auf dem Platz?",
+                       symbol: counter.state.winner == .me ? "trophy.fill" : "tennisball.fill") {
+                ScoreHero(sets: counter.state.completedSets, winner: counter.state.winner)
+                FormGroup(title: "Mitspieler", note: "Optional. Gegner mit Konto verlinkst du danach im Match, damit das Ergebnis bestätigt wird.") {
+                    InputRow(label: "Partner", placeholder: "Name", text: $partner, symbol: "person.2.fill")
+                    RowDivider()
+                    InputRow(label: "Gegner", placeholder: "Name", text: $opponent, symbol: "person.fill.xmark")
                 }
-                Section("Spieler (optional)") {
-                    TextField("Partner", text: $partner)
-                    TextField("Gegner", text: $opponent)
-                }
+            } footer: {
+                FormActionBar(title: "Match speichern") { onSave(partner, opponent); dismiss() }
             }
-            .navigationTitle("Match speichern")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") { onSave(partner, opponent); dismiss() }
-                }
-            }
             .interactiveDismissDisabled()
         }
     }

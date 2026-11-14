@@ -16,30 +16,24 @@ struct RematchSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    DatePicker("Wann?", selection: $date, in: Date.now..., displayedComponents: [.date, .hourAndMinute])
-                    TextField("Nachricht (optional)", text: $note, axis: .vertical)
-                        .lineLimit(1...3)
-                } header: {
-                    Text("Revanche gegen \(opponentName)")
-                } footer: {
-                    Text("\(opponentName) sieht den Vorschlag unter Aktivität und kann zusagen oder ablehnen.")
+            FormScreen(title: "Revanche", subtitle: "\(opponentName) sieht den Vorschlag unter Aktivität und kann zusagen oder ablehnen.",
+                       symbol: "arrow.trianglehead.2.clockwise.rotate.90") {
+                FormGroup(title: "Vorschlag") {
+                    DateRow(title: "Wann?", date: $date, range: Date.now...)
+                    RowDivider()
+                    InputRow(label: "Nachricht", placeholder: "optional", text: $note, symbol: "text.bubble.fill",
+                             axis: .vertical, lineLimit: 1...3)
                 }
-                if let errorText {
-                    Section { Text(errorText).foregroundStyle(Theme.opponent) }
-                }
+                if let errorText { FormError(text: errorText) }
+            } footer: {
+                FormActionBar(title: "Revanche vorschlagen", isWorking: isSending) { Task { await send() } }
             }
-            .navigationTitle("Revanche vorschlagen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Senden") { Task { await send() } }.disabled(isSending)
-                }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
     }
 
     private func send() async {

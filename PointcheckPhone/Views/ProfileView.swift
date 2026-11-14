@@ -807,72 +807,58 @@ struct ProfileEditor: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    HStack {
-                        Spacer()
-                        PhotosPicker(selection: $photoItem, matching: .images) {
-                            ZStack(alignment: .bottomTrailing) {
+            FormScreen(title: "Dein Profil", subtitle: "So sehen dich andere Spieler.", symbol: "person.crop.circle.fill") {
+                HStack {
+                    Spacer()
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        ZStack(alignment: .bottomTrailing) {
+                            Group {
                                 if let photoPreview {
                                     photoPreview.resizable().scaledToFill()
-                                        .frame(width: 96, height: 96).clipShape(.circle)
+                                        .frame(width: 104, height: 104).clipShape(.circle)
                                 } else {
-                                    ProfilePhoto(name: name, url: account.imageURL(avatarPath, bucket: .avatars), size: 96)
+                                    ProfilePhoto(name: name, url: account.imageURL(avatarPath, bucket: .avatars), size: 104)
                                 }
-                                Image(systemName: "camera.fill")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(Theme.onAccent)
-                                    .frame(width: 30, height: 30)
-                                    .background(Theme.accent, in: .circle)
-                                    .overlay(Circle().stroke(Theme.background, lineWidth: 2))
                             }
+                            .overlay(Circle().stroke(Theme.lime, lineWidth: 2))
+                            Image(systemName: "camera.fill")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Theme.onAccent)
+                                .frame(width: 32, height: 32)
+                                .background(Theme.lime, in: .circle)
+                                .overlay(Circle().stroke(Theme.background, lineWidth: 3))
                         }
-                        .buttonStyle(.plain)
-                        Spacer()
                     }
-                    .listRowBackground(Color.clear)
+                    .buttonStyle(.pressScale)
+                    Spacer()
                 }
-                Section("Name") {
-                    TextField("Anzeigename", text: $displayName)
+                .padding(.top, -8)
+
+                FormGroup(title: "Name", note: "Andere finden dich als @\(username.isEmpty ? "benutzername" : username.lowercased()).") {
+                    InputRow(label: "Anzeigename", placeholder: "Dein Name", text: $displayName, symbol: "person.fill")
+                    RowDivider()
+                    InputRow(label: "Benutzername", placeholder: "benutzername", text: $username, symbol: "at", lowercase: true)
                 }
-                Section {
-                    TextField("benutzername", text: $username)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                } header: {
-                    Text("Benutzername")
-                } footer: {
-                    Text("Andere finden dich als @\(username.isEmpty ? "benutzername" : username.lowercased()).")
+                FormGroup(title: "Über dich") {
+                    InputRow(label: "Bio", placeholder: "Kurz über dich (max. 160 Zeichen)", text: $bio,
+                             symbol: "text.quote", axis: .vertical, lineLimit: 2...4)
+                    RowDivider()
+                    InputRow(label: "Heimat-Halle", placeholder: "Halle oder Stadt", text: $homeClub, symbol: "mappin.and.ellipse")
                 }
-                Section {
-                    TextField("Kurz über dich (max. 160 Zeichen)", text: $bio, axis: .vertical)
-                        .lineLimit(2...4)
-                    TextField("Heimat-Halle oder Stadt", text: $homeClub)
-                } header: {
-                    Text("Über dich")
+                FormGroup(title: "Wer darf dein Profil sehen?", note: visibility.explanation) {
+                    PillPicker(selection: $visibility, options: ProfileVisibility.allCases.map { ($0, $0.title) })
+                        .padding(12)
                 }
-                Section {
-                    Picker("Sichtbarkeit", selection: $visibility) {
-                        ForEach(ProfileVisibility.allCases) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                } header: {
-                    Text("Wer darf dein Profil sehen?")
-                } footer: {
-                    Text(visibility.explanation)
-                }
-                if let errorText {
-                    Section { Text(errorText).foregroundStyle(Theme.opponent) }
+                if let errorText { FormError(text: errorText) }
+            } footer: {
+                FormActionBar(title: "Profil sichern",
+                              enabled: !displayName.trimmingCharacters(in: .whitespaces).isEmpty, isWorking: isSaving) {
+                    Task { await save() }
                 }
             }
-            .navigationTitle("Profil bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Sichern") { Task { await save() } }
-                        .disabled(isSaving || displayName.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
             }
             .onChange(of: photoItem) { _, item in
                 Task { await loadPhoto(item) }
