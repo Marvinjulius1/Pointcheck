@@ -120,7 +120,8 @@ targets:
         CFBundleDisplayName: Pointcheck
         CFBundleDevelopmentRegion: de
         LSRequiresIPhoneOS: true
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         # pointcheck://login – the sign-in link in the e-mail opens the app.

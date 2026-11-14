@@ -2,6 +2,62 @@ import PadelStats
 import SwiftData
 import SwiftUI
 
+/// Black screen with the ball dropping in and the wordmark fading up – the moment between
+/// launch image and first screen. Only shown while the session is being restored.
+struct LoadingScreen: View {
+    @State private var landed = false
+    @State private var showsWordmark = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack {
+            Theme.background.ignoresSafeArea()
+            // Faint court light behind the ball.
+            Circle()
+                .fill(Theme.lime.opacity(0.14))
+                .frame(width: 260, height: 260)
+                .blur(radius: 70)
+                .opacity(landed ? 1 : 0)
+            VStack(spacing: 26) {
+                if landed {
+                    BouncingBall(size: 48)
+                        .frame(height: 100)
+                        .transition(.identity)
+                } else {
+                    Image(systemName: "tennisball.fill")
+                        .font(.system(size: 48, weight: .semibold))
+                        .foregroundStyle(Theme.ball)
+                        .frame(height: 100)
+                        .offset(y: -320)
+                        .transition(.identity)
+                }
+                VStack(spacing: 8) {
+                    Text("Pointcheck")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                    Text("Jeder Punkt zählt.")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                .opacity(showsWordmark ? 1 : 0)
+                .offset(y: showsWordmark ? 0 : 12)
+            }
+        }
+        .task {
+            if reduceMotion {
+                landed = true
+                showsWordmark = true
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(60))
+            withAnimation(.interpolatingSpring(stiffness: 170, damping: 11)) { landed = true }
+            try? await Task.sleep(for: .milliseconds(380))
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.85)) { showsWordmark = true }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Pointcheck wird geladen")
+    }
+}
+
 /// The app is only usable with an account: welcome screen until signed in.
 struct AppGate: View {
     @Environment(AccountService.self) private var account
@@ -10,8 +66,8 @@ struct AppGate: View {
         ZStack {
             switch account.state {
             case .loading:
-                Theme.background.ignoresSafeArea()
-                BallLoader(size: 36)
+                LoadingScreen()
+                    .transition(.opacity)
             case .signedOut:
                 WelcomeView()
                     .transition(.opacity)
