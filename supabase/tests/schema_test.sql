@@ -375,4 +375,131 @@ do $$ begin
 end $$;
 reset role;
 
+-- ---------------------------------------------------------------- reactions & comments
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'alice', false) \g /dev/null
+insert into public.posts (id, text) values ('bbbbbbbb-0000-0000-0000-000000000001', 'Reaktionen testen');
+select set_config('request.jwt.claim.sub', :'bob', false) \g /dev/null
+insert into public.reactions (post_id) values ('bbbbbbbb-0000-0000-0000-000000000001');
+insert into public.comments (post_id, text) values ('bbbbbbbb-0000-0000-0000-000000000001', 'Stark gespielt!');
+insert into public.comments (match_id, text) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Was ein Tiebreak');
+do $$ declare r record; begin
+    select * into r from public.reaction_summary(array['bbbbbbbb-0000-0000-0000-000000000001'::uuid]);
+    assert r.claps = 1 and r.clapped, 'bob clapped once';
+    assert (select count(*) from public.reactors('bbbbbbbb-0000-0000-0000-000000000001')) = 1;
+    assert (select count(*) from public.comments_for(p_post => 'bbbbbbbb-0000-0000-0000-000000000001')) = 1;
+    assert (select count(*) from public.comments_for(p_match => 'aaaaaaaa-0000-0000-0000-000000000001')) = 1;
+    assert (select comments from public.comment_counts(array['bbbbbbbb-0000-0000-0000-000000000001'::uuid], null)
+            where post_id = 'bbbbbbbb-0000-0000-0000-000000000001') = 1;
+    begin
+        insert into public.reactions (post_id) values ('bbbbbbbb-0000-0000-0000-000000000001');
+        assert false, 'one clap per person';
+    exception when unique_violation then null;
+    end;
+    begin
+        insert into public.comments (post_id, match_id, text) values ('bbbbbbbb-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'x');
+        assert false, 'a comment targets a post OR a match';
+    exception when check_violation then null;
+    end;
+end $$;
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+do $$ begin
+    begin
+        insert into public.reactions (post_id) values ('bbbbbbbb-0000-0000-0000-000000000001');
+        assert false, 'cannot react to a post you may not see';
+    exception when insufficient_privilege then null;
+    end;
+    assert (select count(*) from public.reactors('bbbbbbbb-0000-0000-0000-000000000001')) = 0, 'reactors hidden too';
+end $$;
+
+-- ---------------------------------------------------------------- rematch
+select set_config('request.jwt.claim.sub', :'carl', false) \g /dev/null
+insert into public.rematch_requests (to_id, match_id, proposed_at, note)
+values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001', now() + interval '3 days', 'Revanche?');
+do $$ begin
+    assert (select count(*) from public.my_rematches() where incoming = false) = 1, 'carl sent one';
+    begin
+        insert into public.rematch_requests (to_id, proposed_at) values ('33333333-3333-3333-3333-333333333333', now());
+        assert false, 'no rematch with yourself';
+    exception when check_violation then null;
+    end;
+end $$;
+select set_config('request.jwt.claim.sub', :'alice', false) \g /dev/null
+do $$ declare v_id uuid; begin
+    select id into v_id from public.my_rematches() where incoming;
+    assert v_id is not null, 'alice sees the incoming request';
+    perform public.respond_rematch(v_id, true);
+    assert (select status from public.my_rematches() where id = v_id) = 'accepted';
+end $$;
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+do $$ begin
+    assert (select count(*) from public.rematch_requests) = 0, 'outsiders see no requests';
+end $$;
+
+-- ---------------------------------------------------------------- games wanted
+select set_config('request.jwt.claim.sub', :'bob', false) \g /dev/null
+insert into public.games_wanted (id, starts_at, club, court, players_needed, note)
+values ('cccccccc-0000-0000-0000-000000000001', now() + interval '2 days', 'Padel Arena Musterstadt', '2', 1, 'Einer fehlt');
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+insert into public.game_joins (game_id) values ('cccccccc-0000-0000-0000-000000000001');
+do $$ declare r record; begin
+    select * into r from public.open_games();
+    assert r.joined = 1 and r.i_joined and not r.is_host, 'eve joined bob''s game';
+    assert r.joined_names = 'eve';
+    assert (select count(*) from public.open_games('padel arena musterstadt')) = 1, 'club filter, case-insensitive';
+    assert (select count(*) from public.open_games('Andere Halle')) = 0;
+end $$;
+select set_config('request.jwt.claim.sub', :'bob', false) \g /dev/null
+do $$ begin
+    delete from public.game_joins where game_id = 'cccccccc-0000-0000-0000-000000000001' and profile_id = '55555555-5555-5555-5555-555555555555';
+    assert (select joined from public.open_games()) = 0, 'host may remove a player';
+end $$;
+
+-- ---------------------------------------------------------------- club & head-to-head
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+do $$ declare r record; begin
+    -- bob (private, not visible to eve) and eve share the club; only eve shows up for eve
+    assert (select count(*) from public.club_ranking('Padel Arena Musterstadt')) = 1, 'club ranking respects visibility';
+    select * into r from public.club_activity('Padel Arena Musterstadt');
+    assert r.players = 1 and r.matches_30d = 1, 'bob played one confirmed match';
+end $$;
+select set_config('request.jwt.claim.sub', :'carl', false) \g /dev/null
+do $$ declare r record; begin
+    select * into r from public.head_to_head('11111111-1111-1111-1111-111111111111');
+    assert r.against = 1 and r.my_wins = 0 and r.their_wins = 1 and r.together = 0, 'carl lost to alice once';
+    select * into r from public.head_to_head('55555555-5555-5555-5555-555555555555');
+    assert r.against = 0 and r.last_played is null, 'never played eve';
+end $$;
+select set_config('request.jwt.claim.sub', :'bob', false) \g /dev/null
+do $$ declare r record; begin
+    select * into r from public.head_to_head('11111111-1111-1111-1111-111111111111');
+    assert r.together = 1 and r.together_wins = 1, 'bob and alice won together';
+end $$;
+
+-- ---------------------------------------------------------------- mentions in feed
+do $$ declare r record; begin
+    select * into r from public.home_feed() where match_id = 'aaaaaaaa-0000-0000-0000-000000000001' limit 1;
+    assert jsonb_array_length(r.players) = 3, 'three linked players';
+    assert r.players -> 0 ->> 'name' = 'Alice';
+end $$;
+
+-- ---------------------------------------------------------------- device tokens & delete account
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+insert into public.device_tokens (token) values ('tok-eve');
+do $$ begin
+    assert (select count(*) from public.device_tokens) = 1;
+end $$;
+select set_config('request.jwt.claim.sub', :'dana', false) \g /dev/null
+do $$ begin
+    assert (select count(*) from public.device_tokens) = 0, 'tokens are private';
+end $$;
+select set_config('request.jwt.claim.sub', :'eve', false) \g /dev/null
+select public.delete_my_account() \g /dev/null
+reset role;
+do $$ begin
+    assert not exists (select 1 from auth.users where id = '55555555-5555-5555-5555-555555555555'), 'user gone';
+    assert not exists (select 1 from public.profiles where id = '55555555-5555-5555-5555-555555555555'), 'profile gone';
+    assert not exists (select 1 from public.device_tokens where token = 'tok-eve'), 'tokens gone';
+end $$;
+
 \echo 'All schema tests passed.'
