@@ -1,3 +1,4 @@
+import PadelStats
 import SwiftData
 import SwiftUI
 
