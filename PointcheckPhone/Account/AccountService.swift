@@ -455,6 +455,10 @@ final class AccountService {
     /// Public URL of a stored image, or `nil` without a path.
     func imageURL(_ path: String?, bucket: Bucket) -> URL? {
         guard let path, !path.isEmpty else { return nil }
+        // Images shipped inside the app (demo player): "bundle:<name>"
+        if path.hasPrefix("bundle:") {
+            return Bundle.main.url(forResource: String(path.dropFirst("bundle:".count)), withExtension: "jpg")
+        }
         return try? client.storage.from(bucket.rawValue).getPublicURL(path: path)
     }
 

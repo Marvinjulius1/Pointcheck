@@ -6,20 +6,29 @@ import PadelStats
 enum DemoProfile {
     static let id = UUID(uuidString: "DE100000-0000-4000-8000-00000000DE10")!
     static let name = "Demo Spieler"
+    /// Picture shipped with the app (PointcheckPhone/Resources/DemoAvatar.jpg).
+    static let avatarPath = "bundle:DemoAvatar"
+    private static let followedKey = "demo.isFollowed"
+
+    /// Following the demo player is remembered on this device only.
+    static var isFollowed: Bool {
+        get { UserDefaults.standard.bool(forKey: followedKey) }
+        set { UserDefaults.standard.set(newValue, forKey: followedKey) }
+    }
 
     static var page: ProfilePage {
         ProfilePage(
             id: id,
             displayName: name,
             username: "demo",
-            avatarPath: nil,
+            avatarPath: avatarPath,
             bio: "Zum Ausprobieren: tipp auf mein Foto, meine Ergebnisse und Beiträge.",
             homeClub: "Padel Arena Musterstadt",
             visibility: .public,
             isVisible: true,
-            relation: .none,
+            relation: isFollowed ? .following : .none,
             followsMe: false,
-            followers: 128,
+            followers: 128 + (isFollowed ? 1 : 0),
             following: 64,
             posts: 3,
             rating: 1612,
@@ -68,13 +77,13 @@ enum DemoProfile {
 
     /// Entry for the avatar row and the feed while nothing real is there yet.
     static var person: PersonRow {
-        PersonRow(profileID: id, displayName: name, username: "demo", avatarPath: nil, homeClub: "Padel Arena Musterstadt",
-                  rating: 1612, relation: .none, reason: "Zum Ausprobieren", requestedAt: nil, followedAt: nil)
+        PersonRow(profileID: id, displayName: name, username: "demo", avatarPath: avatarPath, homeClub: "Padel Arena Musterstadt",
+                  rating: 1612, relation: isFollowed ? .following : .none, reason: "Zum Ausprobieren", requestedAt: nil, followedAt: nil)
     }
 
     static var feedItem: FeedItem {
         let post = posts[0]
         return FeedItem(kind: .post, id: post.id, createdAt: post.createdAt, authorID: id, authorName: name,
-                        authorUsername: "demo", authorAvatar: nil, text: post.text, imagePath: nil, match: post.match)
+                        authorUsername: "demo", authorAvatar: avatarPath, text: post.text, imagePath: nil, match: post.match)
     }
 }

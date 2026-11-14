@@ -99,7 +99,8 @@ struct HomeView: View {
                 }
                 if following.isEmpty {
                     NavigationLink(value: DemoProfile.id) {
-                        AvatarBubble(name: DemoProfile.name, caption: "Demo")
+                        AvatarBubble(name: DemoProfile.name, url: account.imageURL(DemoProfile.avatarPath, bucket: .avatars),
+                                     caption: "Demo", highlighted: DemoProfile.isFollowed)
                             .zoomSource(DemoProfile.id, in: zoomNamespace)
                     }
                     .buttonStyle(.pressScale)

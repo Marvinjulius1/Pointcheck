@@ -269,6 +269,7 @@ struct FollowButton: View {
     var compact = false
     @Environment(AccountService.self) private var account
     @State private var isWorking = false
+    @State private var errorText: String?
 
     var body: some View {
         Button {
@@ -298,6 +299,11 @@ struct FollowButton: View {
         .disabled(isWorking || relation == .self)
         .animation(.spring(response: 0.35, dampingFraction: 0.65), value: relation)
         .sensoryFeedback(.impact(weight: .light), trigger: relation)
+        .alert("Das hat nicht geklappt", isPresented: Binding(get: { errorText != nil }, set: { if !$0 { errorText = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorText ?? "")
+        }
     }
 
     private var background: AnyShapeStyle {
@@ -305,6 +311,12 @@ struct FollowButton: View {
     }
 
     private func toggle() async {
+        // The demo player lives only on this device.
+        if profileID == DemoProfile.id {
+            DemoProfile.isFollowed.toggle()
+            relation = DemoProfile.isFollowed ? .following : .none
+            return
+        }
         isWorking = true
         defer { isWorking = false }
         do {
@@ -318,7 +330,7 @@ struct FollowButton: View {
                 break
             }
         } catch {
-            // keep the old state
+            errorText = "Prüf deine Internetverbindung und versuch es noch einmal."
         }
     }
 }
