@@ -261,12 +261,20 @@ private struct FeedEntry: View {
                 }
                 .buttonStyle(.plain)
                 Spacer()
-                if isMine, item.kind == .post {
-                    Menu {
-                        Button("Beitrag löschen", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                Menu {
+                    ShareCardButton(title: "Beitrag aus Pointcheck") {
+                        async let author = ShareRenderer.load(account.imageURL(item.authorAvatar, bucket: .avatars))
+                        async let picture = ShareRenderer.load(account.imageURL(item.imagePath, bucket: .posts))
+                        return await PostShareCard(authorName: item.authorName, authorPhoto: author, text: item.text ?? "",
+                                                   photo: picture, match: item.match, date: item.createdAt)
                     } label: {
-                        Image(systemName: "ellipsis").foregroundStyle(.secondary).padding(8)
+                        Label("Teilen", systemImage: "square.and.arrow.up")
                     }
+                    if isMine, item.kind == .post {
+                        Button("Beitrag löschen", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis").foregroundStyle(.secondary).padding(8)
                 }
             }
             .padding(.horizontal, 16)
@@ -274,6 +282,7 @@ private struct FeedEntry: View {
             if let text = item.text, !text.isEmpty {
                 Text(text)
                     .font(.body)
+                    .lineSpacing(3)
                     .padding(.horizontal, 16)
             }
 
@@ -360,6 +369,7 @@ struct FloatingDelta: View {
     let delta: Double
     let onDone: () -> Void
     @State private var shown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isUp: Bool { delta > 0 }
 
@@ -369,7 +379,7 @@ struct FloatingDelta: View {
             .foregroundStyle(isUp ? Theme.me : Theme.opponent)
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background((isUp ? Theme.me : Theme.opponent).opacity(0.14), in: .capsule)
-            .offset(y: shown ? (isUp ? -34 : 34) : 0)
+            .offset(y: shown && !reduceMotion ? (isUp ? -34 : 34) : 0)
             .opacity(shown ? 0 : 1)
             .task {
                 try? await Task.sleep(for: .seconds(0.6))

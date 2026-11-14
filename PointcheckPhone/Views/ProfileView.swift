@@ -206,19 +206,16 @@ struct ProfileView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if isMe {
-                secondaryButton("Profil bearbeiten", symbol: "pencil") { showsEditor = true }
+                HStack(spacing: 10) {
+                    secondaryButton("Profil bearbeiten", symbol: "pencil") { showsEditor = true }
+                    profileShareButton(page)
+                }
             } else {
                 HStack(spacing: 10) {
                     FollowButton(profileID: page.id, relation: $relation)
                         .frame(maxWidth: .infinity)
                     if page.isVisible {
-                        ShareLink(item: "Spiel mit mir Padel! Folge @\(page.username ?? page.displayName) in Pointcheck.") {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.subheadline.weight(.semibold))
-                                .frame(width: 44, height: 34)
-                                .background(Color(.tertiarySystemFill), in: .capsule)
-                        }
-                        .buttonStyle(.plain)
+                        profileShareButton(page)
                     }
                 }
             }
@@ -247,6 +244,21 @@ struct ProfileView: View {
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    private func profileShareButton(_ page: ProfilePage) -> some View {
+        ShareCardButton(title: "Mein Pointcheck-Profil") {
+            let photo = await ShareRenderer.load(account.imageURL(page.avatarPath, bucket: .avatars))
+            return ProfileShareCard(page: page, photo: photo)
+        } label: {
+            Image(systemName: "square.and.arrow.up")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.primary)
+                .frame(width: 48, height: 38)
+                .background(Color(.tertiarySystemFill), in: .capsule)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Profil teilen")
     }
 
     private func secondaryButton(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
@@ -603,12 +615,20 @@ struct PostCard: View {
                         }
                     }
                     Spacer()
-                    if canDelete {
-                        Menu {
-                            Button("Beitrag löschen", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                    Menu {
+                        ShareCardButton(title: "Beitrag aus Pointcheck") {
+                            async let author = ShareRenderer.load(authorAvatar)
+                            async let picture = ShareRenderer.load(imageURL)
+                            return await PostShareCard(authorName: authorName, authorPhoto: author, text: text,
+                                                       photo: picture, match: match, date: createdAt)
                         } label: {
-                            Image(systemName: "ellipsis").foregroundStyle(.secondary).padding(6)
+                            Label("Teilen", systemImage: "square.and.arrow.up")
                         }
+                        if canDelete {
+                            Button("Beitrag löschen", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis").foregroundStyle(.secondary).padding(6)
                     }
                 }
 

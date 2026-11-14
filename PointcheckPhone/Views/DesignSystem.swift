@@ -635,11 +635,12 @@ extension View {
 struct RevealOnAppear: ViewModifier {
     var delay: Double = 0
     @State private var shown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
-            .opacity(shown ? 1 : 0)
-            .offset(y: shown ? 0 : 14)
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : 14)
             .onAppear {
                 withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(delay)) { shown = true }
             }
@@ -656,12 +657,13 @@ extension View {
 struct DrawOnAppear: ViewModifier {
     let duration: Double
     @State private var progress: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
             .mask(alignment: .leading) {
                 GeometryReader { proxy in
-                    Rectangle().frame(width: proxy.size.width * progress)
+                    Rectangle().frame(width: proxy.size.width * (reduceMotion ? 1 : progress))
                 }
             }
             .onAppear { withAnimation(.easeOut(duration: duration)) { progress = 1 } }
@@ -704,6 +706,27 @@ struct AccentButtonStyle: ButtonStyle {
 
 extension ButtonStyle where Self == AccentButtonStyle {
     static var accent: AccentButtonStyle { AccentButtonStyle() }
+}
+
+/// Quiet secondary button on a surface (always-readable primary label).
+struct QuietButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Color.primary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color(.tertiarySystemFill), in: .capsule)
+            .opacity(isEnabled ? 1 : 0.4)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == QuietButtonStyle {
+    static var quiet: QuietButtonStyle { QuietButtonStyle() }
 }
 
 /// Thin full-width separator between feed items.

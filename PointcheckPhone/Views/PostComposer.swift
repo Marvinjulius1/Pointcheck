@@ -75,7 +75,7 @@ struct PostComposer: View {
                         Label(photoPreview == nil ? "Foto hinzufügen" : "Anderes Foto", systemImage: "photo")
                             .font(.subheadline.weight(.semibold))
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.quiet)
 
                     if let errorText {
                         Text(errorText).font(.footnote).foregroundStyle(Theme.opponent)

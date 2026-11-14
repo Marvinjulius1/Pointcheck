@@ -114,8 +114,7 @@ struct StatsView: View {
                             Button("Mit Health verbinden") {
                                 Task { await health.requestAccess() }
                             }
-                            .buttonStyle(.glassProminent)
-                            .tint(.pink)
+                            .buttonStyle(.accent)
                         }
                     }
                     .padding(16)

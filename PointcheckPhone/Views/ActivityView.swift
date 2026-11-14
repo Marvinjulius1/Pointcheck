@@ -71,9 +71,9 @@ private struct RequestRow: View {
             Button {
                 act { try await account.removeFollower(person) }
             } label: {
-                Image(systemName: "xmark").font(.caption.weight(.bold))
+                Image(systemName: "xmark").font(.caption.weight(.bold)).frame(width: 14, height: 14)
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.quiet)
             .controlSize(.small)
             .accessibilityLabel("Ablehnen")
         }
@@ -126,7 +126,7 @@ struct ConfirmationCard: View {
                     Button(role: .destructive) { act { try await account.reject(item) } } label: {
                         Text("Falsch").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.quiet)
                 }
                 .disabled(isWorking)
             }
