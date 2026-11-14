@@ -1,12 +1,12 @@
-# Renders the launch wordmark: "POINTCHECK" in white + the Pointcheck logo (red/green score pills
-# taken from the app icon), on transparent.
+# Renders the launch wordmark: "POINT" [logo] "CHECK" in white, with the Pointcheck logo (red/green
+# score pills taken from the app icon) in the middle, on transparent.
 # Usage: python3 tools/render_launch_logo.py PointcheckPhone/Assets.xcassets/LaunchLogo.imageset (needs Pillow + Inter Display)
 import sys, json, os
 from PIL import Image, ImageDraw, ImageFont
 
 out_dir = sys.argv[1]
 FONT = "/usr/share/fonts/opentype/inter/InterDisplay-ExtraBold.otf"
-TEXT = "POINTCHECK"
+LEFT, RIGHT = "POINT", "CHECK"
 FONT_PT = 22          # size in points
 TRACK = -0.012        # letter spacing in em
 SS = 8                # supersampling factor
@@ -23,27 +23,29 @@ def render(scale):
     hb = font.getbbox("H")
     cap_top, cap_bottom = hb[1], hb[3]
     cap = cap_bottom - cap_top
-    # text width with tracking
-    widths = [font.getlength(c) for c in TEXT]
     track = TRACK * FONT_PT * k
-    text_w = sum(widths) + track * (len(TEXT) - 1)
+    def width(text):
+        return sum(font.getlength(c) for c in text) + track * (len(text) - 1)
+    left_w, right_w = width(LEFT), width(RIGHT)
     # logo: the pills from the app icon, black corners made transparent
     logo = Image.open(ICON).convert("RGBA").crop(LOGO_BOX)
     mark_h = cap * LOGO_SCALE
     mark_w = mark_h * logo.width / logo.height
     gap = cap * 0.45
     pad = 2 * k
-    W = int(text_w + gap + mark_w + 2 * pad + 0.5)
+    W = int(left_w + gap + mark_w + gap + right_w + 2 * pad + 0.5)
     H = int(mark_h + 2 * pad + 0.5)
     img = Image.new("RGBA", (W, H), (255, 255, 255, 0))
     d = ImageDraw.Draw(img)
     y_cap_top = pad + (H - 2 * pad - cap) / 2
-    x = pad
-    for c, w in zip(TEXT, widths):
-        d.text((x, y_cap_top - cap_top), c, font=font, fill=(255, 255, 255, 255))
-        x += w + track
-    mx = pad + text_w + gap
+    def draw(text, x):
+        for c in text:
+            d.text((x, y_cap_top - cap_top), c, font=font, fill=(255, 255, 255, 255))
+            x += font.getlength(c) + track
+    draw(LEFT, pad)
+    mx = pad + left_w + gap
     my = pad + (H - 2 * pad - mark_h) / 2
+    draw(RIGHT, mx + mark_w + gap)
     logo = logo.resize((round(mark_w), round(mark_h)), Image.LANCZOS)
     # black background of the icon → transparent (keeps the pill edges smooth)
     r_, g_, b_, a_ = logo.split()
