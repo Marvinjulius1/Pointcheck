@@ -158,7 +158,7 @@ struct PostComposer: View {
 
                 Text("\(limit - text.count)")
                     .font(.caption.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(limit - text.count < 40 ? Theme.opponent : .tertiary)
+                    .foregroundStyle(limit - text.count < 40 ? AnyShapeStyle(Theme.opponent) : AnyShapeStyle(.tertiary))
                     .contentTransition(.numericText())
                     .animation(.snappy, value: text.count)
 
